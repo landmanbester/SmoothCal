@@ -9,7 +9,7 @@ Set of utilities to simulate corrupted visibility data
 
 import numpy as np
 import itertools as it
-
+import utils
 
 def sim_uv(Na, Nt, umax, vmax, Autocor=False, rot_params=(1,1)):
     """
@@ -73,3 +73,36 @@ def sim_sky(Npix, Nsource, max_I, lmax, mmax):
         IM[locx, locy] = np.abs(max_I*np.random.randn())
         lmsource.append((ll[locx, locy], mm[locx, locy]))
     return IM, lmsource, lm
+
+def sim_gains(Na, Ns, thetas, lm, bounds=None):
+    """
+    Simulates DDE's 
+    :param Na: number of antennae
+    :param Ns: [Nnu, Nt]
+    :param thetas: [theta_nu, theta_t, theta_l, theta_m]
+    :param lm: 2 x Nsource array of source coordinates (only doing point sources for now)
+    :param bounds: [(nu_min, nu_max), (t_min, t_max)]
+    :return: 
+    """
+    if bounds is not None:
+        nu = np.linspace(bounds[0][0], bounds[0][1], Ns[0])
+        t = np.linspace(bounds[1][0], bounds[1][1], Ns[1])
+    else:
+        nu = np.linspace(1.0, 2.0, Ns[0])
+        t = np.linspace(0,1, Ns[1])
+
+    l = lm[0]
+    m = lm[1]
+
+    Nsource = l.size
+
+    x = np.array([nu, t, l, m])
+
+    meanf = lambda x: np.ones([x[0].size, x[1].size, x[2].size, x[3].size], dtype=np.complex128)
+
+    gains = utils.draw_samples_ND_grid(x, thetas, Na, meanf=meanf)
+
+    return gains
+
+
+
