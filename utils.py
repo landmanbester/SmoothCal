@@ -4,38 +4,46 @@ import numpy as np
 import matplotlib.pyplot as plt
 import itertools as it
 from astropy.io import fits
-from astropy import wcs
 
 speed_of_light = 2.99792458e8
 
-@jit(nopython=True, nogil=True, cache=True)
-def R(IM, upq, vpq, lm, pqlist, freqs, ref_freq, gains, Xpq):
+#@jit(nopython=True, nogil=True, cache=True)
+def R(IM, upq, vpq, lm, pqlist, freqs, ref_freq, gains, Xpq, Nnu, Nt, Nsource, DD=True):
     """
     Full response operator including DDE's coded as a DFT.
     Note empty Xpq passed in for jitting purposes (don't want to be creating arrays inside a jitted function)
     :param IM: Nnu x Nsource array containing model image at Nnu freqs
     :param upq: N x Nt array of baseline coordinates in units of lambda at the reference frequency
     :param vpq: N x Nt array of baseline coordinates in units of lambda at the reference frequency
-    :param lm: 2 x Nsource array of sky coordinates for sources
+    :param lm: Nsource x 2 array of sky coordinates for sources
     :param pqlist: a list of antennae pairs (used for the iterator)
     :param freqs: array of frequencies
     :param ref_freq: reference frequency
     :param gains: Na x Nnu x Nt x Nsource array containg direction dependent gains for antennaes
+    :param DD: whether to applu DD gains or not
     :return: Xpq: Na x Na x Nnu x Nt array to hold model visibilities
     """
-    Nnu = freqs.size
-    N, Nt = upq.shape
     ref_wavelength = speed_of_light/ref_freq
-    Xpq = np.zeros([Na, Na, Nnu, Nt], dtype=np.complex128)
+    def apply_gains_DI(Kbit, gp, gq, IMbit, s):
+        return Kbit * gp * IMbit[s] * gq.conj()
+
+    def apply_gains_DD(Kbit, gp, gq, IMbit, s):
+        return  Kbit * gp[s] * IMbit[s] * gq[s].conj()
+
+    fn = apply_gains_DD if DD else apply_gains_DI
     for k, pq in enumerate(iter(pqlist)):
         p = pq[0]
         q = pq[1]
         for i in xrange(Nnu):
             wavelength = speed_of_light/freqs[i]
             for j in xrange(Nt):
-                uv = np.array([upq[k,j], vpq[k,j]])*ref_wavelength/wavelength  # convert units
-                K = np.exp(-2.0j*np.pi*np.dot(uv,lm))
-                Xpq[p, q, i, j] = np.dot(K, gains[p, i, j]*IM[i]*gains[q, i, j])
+                u = upq[k, j]*ref_wavelength/wavelength
+                v = vpq[k, j]*ref_wavelength/wavelength  # convert units
+                for s in xrange(Nsource):
+                    l, m = lm[s]
+                    complex_phase = -2.0*np.pi*(u*l + v*m)
+                    K = np.cos(complex_phase) + 1.0j*np.sin(complex_phase)
+                    Xpq[p, q, i, j] += fn(K, gains[p, i, j], gains[q, i, j], IM[i], s)
     return Xpq
 
 
@@ -156,7 +164,7 @@ def draw_samples_ND_grid(x, theta, Nsamps, meanf=None):
     for i in xrange(D):
         Ns.append(x[i].size)
         XX = abs_diff(x[i], x[i])
-        K[i] = sqexp(theta[i], XX) + 1e-13*np.eye(Ns[i])
+        K[i] = sqexp(XX, theta[i]) + 1e-13*np.eye(Ns[i])
         Ntot *= Ns[i]
 
     L = kron_cholesky(K)

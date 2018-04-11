@@ -50,7 +50,7 @@ def sim_uv(Na, Nt, umax, vmax, Autocor=False, rot_params=(1,1)):
             upq[i, j], vpq[i, j] = np.dot(rottheta, np.array([upq[i, 0], vpq[i, 0]]))
     return upq, vpq, pqlist, N
 
-def sim_sky(Npix, Nsource, max_I, lmax, mmax):
+def sim_sky(Npix, Nsource, max_I, lmax, mmax, freqs, ref_freq):
     """
     Simulates a sky randomly populated with sources
     :param Npix: 
@@ -60,21 +60,50 @@ def sim_sky(Npix, Nsource, max_I, lmax, mmax):
     :param mmax: 
     :return: 
     """
+    Nnu = freqs.size
     l = np.linspace(-lmax, lmax, Npix)
     m = np.linspace(-mmax, mmax, Npix)
     ll, mm = np.meshgrid(l, m)
-    lm = (np.vstack((ll.flatten(), mm.flatten())))
     lmsource = []
-    IM = np.zeros([Npix, Npix])
-    #IM[Npix//2, Npix//2] = 1.0
+    locs = []
+    alpha = []
+    IM = np.zeros([Nnu, Nsource], dtype=np.float64)
     for i in xrange(Nsource):
         locx = np.random.randint(2, Npix-2)
         locy = np.random.randint(2, Npix-2)
-        IM[locx, locy] = np.abs(max_I*np.random.randn())
+        locs.append((locx, locy))
+        alpha.append(-0.7 + 0.1*np.random.randn(1))
+        I0 = np.abs(max_I*np.random.randn())
+        IM[:, i] = I0*(freqs/ref_freq)**alpha[i]
         lmsource.append((ll[locx, locy], mm[locx, locy]))
-    return IM, lmsource, lm
+    return IM, lmsource, locs
 
-def sim_gains(Na, Ns, thetas, lm, bounds=None):
+def sim_DI_gains(Na, Ns, thetas, bounds=None):
+    """
+    Simulates DDE's 
+    :param Na: number of antennae
+    :param Ns: [Nnu, Nt]
+    :param thetas: [theta_nu, theta_t]
+    :param bounds: [(nu_min, nu_max), (t_min, t_max)]
+    :return: 
+    """
+    if bounds is not None:
+        nu = np.linspace(bounds[0][0], bounds[0][1], Ns[0])
+        t = np.linspace(bounds[1][0], bounds[1][1], Ns[1])
+    else:
+        nu = np.linspace(1.0, 2.0, Ns[0])
+        t = np.linspace(0.0, 1.0, Ns[1])
+
+    x = np.array([nu, t])
+
+    meanf = lambda x: np.ones([x[0].size, x[1].size], dtype=np.complex128)
+
+
+    gains = utils.draw_samples_ND_grid(x, thetas, Na, meanf=meanf)
+
+    return gains
+
+def sim_DD_gains(Na, Ns, thetas, lm, bounds=None):
     """
     Simulates DDE's 
     :param Na: number of antennae
