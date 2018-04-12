@@ -8,8 +8,17 @@ Testing time + frequency SmoothCal
 """
 
 import numpy as np
+import scipy.sparse as sps
 import Simulator
 import utils
+
+def give_D_and_j(Vpq, Xpq, Wpq, K, Na, Nnu, Nt):
+    A = sps.lil_matrix([Na*(Na-1)*Nnu*Nt, Na*Nt*Nnu], dtype=np.complex128)  # to hold per-antenna response
+    V = np.zeros([Na*(Na-1)*Nnu*Nt], dtype=np.complex128)  # to hold per-antenna data
+    W = np.zeros([Na*(Na-1)*Nnu*Nt], dtype=np.float64)  # to hold weights
+    Sigma = np.zeros([Na*(Na-1)*Nnu*Nt], dtype=np.float64)  # to hold per-antenna weights
+    Sigmay = np.zeros([Na * Nt * Nnu], dtype=np.float64)  # to hold diagonal of Ad.Sigmainv.A
+    return
 
 if __name__=="__main__":
     # set time and freq domain
@@ -41,7 +50,7 @@ if __name__=="__main__":
 
     # gains
     Na = 4
-    gains = Simulator.sim_DI_gains(Na, Ns, thetas, bounds=[(tmin, tmax), (numin, numax)])
+    gains, K = Simulator.sim_DI_gains(Na, Ns, thetas, bounds=[(tmin, tmax), (numin, numax)])
 
     # uv-coverage
     umax = 10.0
@@ -50,10 +59,12 @@ if __name__=="__main__":
 
     # data
     Xpq = np.zeros([Na, Na, Nnu, Nt], dtype=np.complex128)
-    Xpq = utils.R(IM, upq, vpq, lm, pqlist, nu, nu[Nnu//2], np.ones_like(gains), Xpq, Nnu, Nt, Nsource, DD=False)
+    Xpq = utils.R_DI(IM, upq, vpq, lm, pqlist, nu, nu[Nnu//2], np.ones_like(gains), Xpq, Nnu, Nt, Nsource, DD=False)
     sigma = 0.1
-    Vpq = utils.R(IM, upq, vpq, lm, pqlist, nu, nu[Nnu//2], gains, Xpq, Nnu, Nt, Nsource, DD=False) + sigma**2*(
+    Vpq = utils.R_DI(IM, upq, vpq, lm, pqlist, nu, nu[Nnu//2], gains, Xpq, Nnu, Nt, Nsource, DD=False) + sigma**2*(
             np.random.randn(Na, Na, Nnu, Nt) + 1.0j*np.random.randn(Na, Na, Nnu, Nt))
+
+    Wpq = np.ones_like(Vpq, dtype=np.float64)/(2*sigma**2)
 
 
 

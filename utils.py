@@ -7,8 +7,8 @@ from astropy.io import fits
 
 speed_of_light = 2.99792458e8
 
-#@jit(nopython=True, nogil=True, cache=True)
-def R(IM, upq, vpq, lm, pqlist, freqs, ref_freq, gains, Xpq, Nnu, Nt, Nsource, DD=True):
+@jit(nopython=True, nogil=True, cache=True)
+def R_DI(IM, upq, vpq, lm, pqlist, freqs, ref_freq, gains, Xpq, Nnu, Nt, Nsource, DD=True):
     """
     Full response operator including DDE's coded as a DFT.
     Note empty Xpq passed in for jitting purposes (don't want to be creating arrays inside a jitted function)
@@ -24,13 +24,6 @@ def R(IM, upq, vpq, lm, pqlist, freqs, ref_freq, gains, Xpq, Nnu, Nt, Nsource, D
     :return: Xpq: Na x Na x Nnu x Nt array to hold model visibilities
     """
     ref_wavelength = speed_of_light/ref_freq
-    def apply_gains_DI(Kbit, gp, gq, IMbit, s):
-        return Kbit * gp * IMbit[s] * gq.conj()
-
-    def apply_gains_DD(Kbit, gp, gq, IMbit, s):
-        return  Kbit * gp[s] * IMbit[s] * gq[s].conj()
-
-    fn = apply_gains_DD if DD else apply_gains_DI
     for k, pq in enumerate(iter(pqlist)):
         p = pq[0]
         q = pq[1]
@@ -43,9 +36,40 @@ def R(IM, upq, vpq, lm, pqlist, freqs, ref_freq, gains, Xpq, Nnu, Nt, Nsource, D
                     l, m = lm[s]
                     complex_phase = -2.0*np.pi*(u*l + v*m)
                     K = np.cos(complex_phase) + 1.0j*np.sin(complex_phase)
-                    Xpq[p, q, i, j] += fn(K, gains[p, i, j], gains[q, i, j], IM[i], s)
+                    Xpq[p, q, i, j] += K * gains[p, i, j] * IM[i, s] * np.conj(gains[q, i, j])
     return Xpq
 
+@jit(nopython=True, nogil=True, cache=True)
+def R_DD(IM, upq, vpq, lm, pqlist, freqs, ref_freq, gains, Xpq, Nnu, Nt, Nsource, DD=True):
+    """
+    Full response operator including DDE's coded as a DFT.
+    Note empty Xpq passed in for jitting purposes (don't want to be creating arrays inside a jitted function)
+    :param IM: Nnu x Nsource array containing model image at Nnu freqs
+    :param upq: N x Nt array of baseline coordinates in units of lambda at the reference frequency
+    :param vpq: N x Nt array of baseline coordinates in units of lambda at the reference frequency
+    :param lm: Nsource x 2 array of sky coordinates for sources
+    :param pqlist: a list of antennae pairs (used for the iterator)
+    :param freqs: array of frequencies
+    :param ref_freq: reference frequency
+    :param gains: Na x Nnu x Nt x Nsource array containg direction dependent gains for antennaes
+    :param DD: whether to applu DD gains or not
+    :return: Xpq: Na x Na x Nnu x Nt array to hold model visibilities
+    """
+    ref_wavelength = speed_of_light/ref_freq
+    for k, pq in enumerate(iter(pqlist)):
+        p = pq[0]
+        q = pq[1]
+        for i in xrange(Nnu):
+            wavelength = speed_of_light/freqs[i]
+            for j in xrange(Nt):
+                u = upq[k, j]*ref_wavelength/wavelength
+                v = vpq[k, j]*ref_wavelength/wavelength  # convert units
+                for s in xrange(Nsource):
+                    l, m = lm[s]
+                    complex_phase = -2.0*np.pi*(u*l + v*m)
+                    K = np.cos(complex_phase) + 1.0j*np.sin(complex_phase)
+                    Xpq[p, q, i, j] += K * gains[p, i, j, s] * IM[i, s] * np.conj(gains[q, i, j, s])
+    return Xpq
 
 # still work in progress
 def RH(Xpq, Wpq, upq, vpq, lm, ID, pqlist, PSFmax=None):
@@ -175,7 +199,7 @@ def draw_samples_ND_grid(x, theta, Nsamps, meanf=None):
             samps[i] = meanf(x) + kron_matvec(L, xi).reshape(Ns)
         else:
             samps[i] = kron_matvec(L, xi).reshape(Ns)
-    return samps
+    return samps, K
 
 def plot_vis(Xpq, Xpq_corrected, Xpq_corrected2, upq, vpq, p, q):
     # plot absolute value of visibilities as function of baseline length

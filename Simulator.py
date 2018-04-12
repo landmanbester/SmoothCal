@@ -99,9 +99,9 @@ def sim_DI_gains(Na, Ns, thetas, bounds=None):
     meanf = lambda x: np.ones([x[0].size, x[1].size], dtype=np.complex128)
 
 
-    gains = utils.draw_samples_ND_grid(x, thetas, Na, meanf=meanf)
+    gains, Kmat = utils.draw_samples_ND_grid(x, thetas, Na, meanf=meanf)
 
-    return gains
+    return gains, Kmat
 
 def sim_DD_gains(Na, Ns, thetas, lm, bounds=None):
     """
