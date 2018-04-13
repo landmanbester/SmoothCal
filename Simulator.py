@@ -76,7 +76,30 @@ def sim_sky(Npix, Nsource, max_I, lmax, mmax, freqs, ref_freq):
         I0 = np.abs(max_I*np.random.randn())
         IM[:, i] = I0*(freqs/ref_freq)**alpha[i]
         lmsource.append((ll[locx, locy], mm[locx, locy]))
-    return IM, lmsource, locs
+    return IM.squeeze(), lmsource, locs
+
+def sim_T_gains(Na, N, theta, bounds=None):
+    """
+    Simulates DDE's 
+    :param Na: number of antennae
+    :param Ns: [Nnu, Nt]
+    :param thetas: [theta_nu, theta_t]
+    :param bounds: [(nu_min, nu_max), (t_min, t_max)]
+    :return: 
+    """
+    if bounds is not None:
+        t = np.linspace(bounds[0][0], bounds[0][1], N[0])
+    else:
+        t = np.linspace(0.0, 1.0, N[0])
+
+    x = np.array([t])
+
+    meanf = lambda x: np.ones(x[0].size, dtype=np.complex128)
+
+
+    gains, Kmat = utils.draw_samples_ND_grid(x, theta, Na, meanf=meanf)
+
+    return gains, Kmat
 
 def sim_DI_gains(Na, Ns, thetas, bounds=None):
     """
