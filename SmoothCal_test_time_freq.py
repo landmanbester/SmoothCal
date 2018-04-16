@@ -8,10 +8,11 @@ Testing time + frequency SmoothCal
 """
 
 import numpy as np
-import scipy.sparse as sps
 import Simulator
 import utils
 import matplotlib.pyplot as plt
+import scipy.sparse as sps
+from scipy.sparse.linalg import cg
 
 def give_j_and_Sigmayinv(A, W, V, Na, Nnu, j, Sigmayinv):
     for p in xrange(Na):
@@ -36,7 +37,22 @@ def give_response(Xpq, gnow, Na, Nnu, Nt, A):
                 A[p, v, t * Na:(t + 1) * Na, t] = Rpnut
     return A
 
-def give_StefCal_update(j, Sigmayinv, gains):
+def give_SmoothCal_update(j, Sigmayinv, gains, K, Na, Nnu, Nt):
+    jtmp = j.reshape(Na, Nnu * Nt)
+    Sigmayinvtmp = Sigmayinv.reshape(Na, Nnu * Nt)
+    gainstmp = gains.reshape(Na, Nnu * Nt)
+    for p in xrange(Na):
+        mvec = lambda x: utils.kron_matvec(K, x) + x/Sigmayinvtmp[p]
+        Ky = sps.linalg.LinearOperator(dtype=np.float64, shape=(Nnu * Nt, Nnu * Nt), matvec=mvec)
+        rhs_vec = utils.kron_matvec(K, jtmp[p]) + gainstmp[p]
+        tmp = sps.linalg.cg(Ky, rhs_vec, tol=1e-8)
+        if tmp[1]>0:
+            print "Tolerance not achieved"
+        rhs_vec = rhs_vec - utils.kron_matvec(K, tmp[0])
+        gainstmp[p] = (gainstmp[p] + rhs_vec)/2.0
+    return gainstmp.reshape(Na, Nnu, Nt)
+
+def give_StefCal_update(j, Sigmayinv, gains, Na, Nnu):
     for p in xrange(Na):
         for v in xrange(Nnu):
             gains[p, v] = (j[p, v]/Sigmayinv[p, v] + gains[p, v])/2.0
@@ -49,7 +65,24 @@ def tf_StefCal(Vpq, Wpq, Xpq, gains, Na, Nnu, Nt, A, Sigmayinv, j, maxiter=100, 
         gold = gains.copy()
         A[...] = give_response(Xpq, gold, Na, Nnu, Nt, A)
         j[...], Sigmayinv[...] = give_j_and_Sigmayinv(A, Wpq, Vpq, Na, Nnu, j, Sigmayinv)
-        gains[...] = give_StefCal_update(j, Sigmayinv, gains)
+        gains[...] = give_StefCal_update(j, Sigmayinv, gains, Na, Nnu)
+        diff = np.abs(gains - gold).max()
+        i += 1
+        print "At iter %i max difference is %f" % (i, diff)
+
+    if i >= maxiter:
+        print "Maximum iterations reached"
+
+    return gains
+
+def tf_SmoothCal(Vpq, Wpq, Xpq, gains, K, Na, Nnu, Nt, A, Sigmayinv, j, maxiter=100, tol=1e-3):
+    diff = 1.0
+    i = 0
+    while i<maxiter and diff >= tol:
+        gold = gains.copy()
+        A[...] = give_response(Xpq, gold, Na, Nnu, Nt, A)
+        j[...], Sigmayinv[...] = give_j_and_Sigmayinv(A, Wpq, Vpq, Na, Nnu, j, Sigmayinv)
+        gains[...] = give_SmoothCal_update(j, Sigmayinv, gains, K, Na, Nnu, Nt)
         diff = np.abs(gains - gold).max()
         i += 1
         print "At iter %i max difference is %f" % (i, diff)
@@ -64,7 +97,7 @@ if __name__ == "__main__":
     # set time and freq domain
     Nt = 100
     tmin = 0.0
-    tmax = 10.0
+    tmax = 100.0
     t = np.linspace(tmin, tmax, Nt)
 
     Nnu = 100
@@ -75,18 +108,19 @@ if __name__ == "__main__":
     Ns = [Nnu, Nt]
 
     # covariance params
-    theta_nu = np.array([0.1, 5])
-    theta_t = np.array([0.25, 1.0])
+    theta_nu = np.array([0.5, 1.5])
+    theta_t = np.array([0.25, 0.5])
 
     thetas = np.array([theta_nu, theta_t])
 
     # model image
     Npix = 35
     Nsource = 5
-    max_I = 1.0
+    max_I = 2.0
     lmax = 0.1
     mmax = 0.1
     IM, lm, locs = Simulator.sim_sky(Npix, Nsource, max_I, lmax, mmax, nu, nu[Nnu//2])
+    #IM[:, 0] = 0.0
 
     # gains
     Na = 4
@@ -95,11 +129,17 @@ if __name__ == "__main__":
     # uv-coverage
     umax = 10.0
     vmax = 10.0
-    upq, vpq, pqlist, N = Simulator.sim_uv(Na, Nt, umax, vmax, rot_params=(2, 1))
+    upq, vpq, pqlist, N = Simulator.sim_uv(Na, Nt, umax, vmax, rot_params=(1.5, 0.75))
+
+    # print upq
+    # print vpq
 
     plt.figure()
     plt.plot(upq.flatten(), vpq.flatten(), 'xr')
     plt.show()
+
+    # import sys
+    # sys.exit()
 
     # data
     Xpq = np.zeros([Na, Na, Nnu, Nt], dtype=np.complex128)
@@ -128,19 +168,45 @@ if __name__ == "__main__":
     j = np.ma.zeros([Na, Nnu, Nt], dtype=np.complex128)
     Sigmayinv = np.ma.zeros([Na, Nnu, Nt], dtype=np.float64)
 
-    # test ML solution
-    gains_true = gains.copy()
-    gains[...] = tf_StefCal(Vpq, Wpq, Xpq, gains, Na, Nnu, Nt, A, Sigmayinv, j, tol=5e-2, maxiter=10)
+    # # test ML solution
+    # gbar = np.ones_like(gains, dtype=np.complex128)
+    # gbar[...] = tf_StefCal(Vpq, Wpq, Xpq, gbar, Na, Nnu, Nt, A, Sigmayinv, j, tol=5e-3, maxiter=20)
+
+    # SmoothCal solution
+    gbar2 = np.ones_like(gains, dtype=np.complex128)
+    gbar2[...] = tf_SmoothCal(Vpq, Wpq, Xpq, gbar2, K, Na, Nnu, Nt, A, Sigmayinv, j, tol=5e-3, maxiter=20)
+
+    # # check result
+    # fig, ax = plt.subplots(nrows=3, ncols=Na, figsize=(15,8))
+    # for p in xrange(Na):
+    #     ax[0, p].imshow(np.abs(gains[p]))
+    #     ax[1, p].imshow(np.abs(gbar[p]))
+    #     ax[2, p].imshow(np.abs(gbar[p] - gains[p]))
+    #
+    # fig.tight_layout()
+    # plt.show()
 
     # check result
-    fig, ax = plt.subplots(nrows=2, ncols=Na, figsize=(15,8))
-    cmap = plt.get_cmap('PiYG')
+    fig, ax = plt.subplots(nrows=3, ncols=Na, figsize=(15,8))
     for p in xrange(Na):
-        cax = ax[0, p].imshow(np.abs(gains[p]))
-        cax = ax[1, p].imshow(np.abs(gains_true[p]))
+        ax[0, p].imshow(np.abs(gains[p]))
+        ax[1, p].imshow(np.abs(gbar2[p]))
+        ax[2, p].imshow(np.abs(gbar2[p] - gains[p]))
 
     fig.tight_layout()
     plt.show()
+
+    fig, ax = plt.subplots(nrows=1, ncols=Na, figsize=(15, 8))
+    tmp = np.abs(gbar2[0] - gains[0])
+    for p in xrange(1, Na):
+        tmp2 = np.abs(gbar2[p] - gains[p])
+        ax[p].imshow(tmp-tmp2)
+        print np.max(tmp-tmp2), (tmp - tmp2).min()
+
+    fig.tight_layout()
+    plt.show()
+
+
 
 
 

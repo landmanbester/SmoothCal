@@ -38,10 +38,10 @@ def sim_uv(Na, Nt, umax, vmax, Autocor=False, rot_params=(1,1)):
     # create baselines with time axis
     upq = np.zeros([N, Nt])
     vpq = np.zeros([N, Nt])
-    phi = np.linspace(0, np.pi, Nt) # to simulate earth rotation
+    phi = np.linspace(0, 1.5*np.pi, Nt)  # to simulate earth rotation
     for i, pq in enumerate(iter(pqlist)):
         p = pq[0]
-        q = int(pq[1]) - 1
+        q = pq[1]
         upq[i, 0] = u[p] - u[q]
         vpq[i, 0] = v[p] - v[q]
         for j in xrange(1, Nt):
