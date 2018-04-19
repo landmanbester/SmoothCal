@@ -69,6 +69,40 @@ def R_DI(IM, upq, vpq, lm, pqlist, freqs, ref_freq, gains, Xpq, Nnu, Nt, Nsource
     return Xpq
 
 @jit(nopython=True, nogil=True, cache=True)
+def R_DD_model(IM, upq, vpq, lm, pqlist, freqs, ref_freq, gains, Xpq, Nnu, Nt, Nsource, Xpq_DD):
+    """
+    Full response operator including DDE's coded as a DFT.
+    Note empty Xpq passed in for jitting purposes (don't want to be creating arrays inside a jitted function)
+    :param IM: Nnu x Nsource array containing model image at Nnu freqs
+    :param upq: N x Nt array of baseline coordinates in units of lambda at the reference frequency
+    :param vpq: N x Nt array of baseline coordinates in units of lambda at the reference frequency
+    :param lm: Nsource x 2 array of sky coordinates for sources
+    :param pqlist: a list of antennae pairs (used for the iterator)
+    :param freqs: array of frequencies
+    :param ref_freq: reference frequency
+    :param gains: Na x Nnu x Nt x Nsource array containg direction dependent gains for antennaes
+    :param DD: whether to applu DD gains or not
+    :return: Xpq: Na x Na x Nnu x Nt array to hold model visibilities
+    """
+    ref_wavelength = speed_of_light/ref_freq
+    for k, pq in enumerate(iter(pqlist)):
+        p = pq[0]
+        q = pq[1]
+        for i in xrange(Nnu):
+            wavelength = speed_of_light/freqs[i]
+            for j in xrange(Nt):
+                u = upq[k, j]*ref_wavelength/wavelength
+                v = vpq[k, j]*ref_wavelength/wavelength  # convert units
+                for s in xrange(Nsource):
+                    l, m = lm[s]
+                    complex_phase = -2.0*np.pi*(u*l + v*m)
+                    K = np.cos(complex_phase) + 1.0j*np.sin(complex_phase)
+                    Xpq_DD[p, q, i, j, s] = K * gains[p, i, j, s] * IM[i, s] * np.conj(gains[q, i, j, s])
+                    Xpq[p, q, i, j] += Xpq_DD[p, q, i, j, s]
+
+    return Xpq, Xpq_DD
+
+@jit(nopython=True, nogil=True, cache=True)
 def R_DD(IM, upq, vpq, lm, pqlist, freqs, ref_freq, gains, Xpq, Nnu, Nt, Nsource):
     """
     Full response operator including DDE's coded as a DFT.
@@ -98,6 +132,31 @@ def R_DD(IM, upq, vpq, lm, pqlist, freqs, ref_freq, gains, Xpq, Nnu, Nt, Nsource
                     complex_phase = -2.0*np.pi*(u*l + v*m)
                     K = np.cos(complex_phase) + 1.0j*np.sin(complex_phase)
                     Xpq[p, q, i, j] += K * gains[p, i, j, s] * IM[i, s] * np.conj(gains[q, i, j, s])
+    return Xpq
+
+@jit(nopython=True, nogil=True, cache=True)
+def apply_DD_gains(Xpq_DD, gains, Nnu, Nt, Nsource, pqlist, Xpq):
+    """
+    Full response operator including DDE's coded as a DFT.
+    Note empty Xpq passed in for jitting purposes (don't want to be creating arrays inside a jitted function)
+    :param IM: Nnu x Nsource array containing model image at Nnu freqs
+    :param upq: N x Nt array of baseline coordinates in units of lambda at the reference frequency
+    :param vpq: N x Nt array of baseline coordinates in units of lambda at the reference frequency
+    :param lm: Nsource x 2 array of sky coordinates for sources
+    :param pqlist: a list of antennae pairs (used for the iterator)
+    :param freqs: array of frequencies
+    :param ref_freq: reference frequency
+    :param gains: Na x Nnu x Nt x Nsource array containg direction dependent gains for antennaes
+    :param DD: whether to applu DD gains or not
+    :return: Xpq: Na x Na x Nnu x Nt array to hold model visibilities
+    """
+    for k, pq in enumerate(iter(pqlist)):
+        p = pq[0]
+        q = pq[1]
+        for i in xrange(Nnu):
+            for j in xrange(Nt):
+                for s in xrange(Nsource):
+                    Xpq[p, q, i, j] += gains[p, i, j, s] * Xpq_DD[p, q, i, j, s] * np.conj(gains[q, i, j, s])
     return Xpq
 
 # still work in progress

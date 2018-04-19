@@ -10,7 +10,10 @@ Testing time + frequency SmoothCal
 import numpy as np
 import Simulator
 import utils
+import matplotlib as mpl
+mpl.rcParams.update({'font.size': 14, 'font.family': 'serif'})
 import matplotlib.pyplot as plt
+from matplotlib.transforms import offset_copy
 import scipy.sparse as sps
 from scipy.sparse.linalg import cg
 
@@ -94,6 +97,8 @@ def tf_SmoothCal(Vpq, Wpq, Xpq, gains, K, Na, Nnu, Nt, A, Sigmayinv, j, maxiter=
 
 
 if __name__ == "__main__":
+    # seed for reproducibility
+    np.random.seed(7426)
     # set time and freq domain
     Nt = 100
     tmin = 0.0
@@ -116,7 +121,7 @@ if __name__ == "__main__":
     # model image
     Npix = 35
     Nsource = 5
-    max_I = 2.0
+    max_I = 1.0
     lmax = 0.1
     mmax = 0.1
     IM, lm, locs = Simulator.sim_sky(Npix, Nsource, max_I, lmax, mmax, nu, nu[Nnu//2])
@@ -134,9 +139,9 @@ if __name__ == "__main__":
     # print upq
     # print vpq
 
-    plt.figure()
-    plt.plot(upq.flatten(), vpq.flatten(), 'xr')
-    plt.show()
+    # plt.figure()
+    # plt.plot(upq.flatten(), vpq.flatten(), 'xr')
+    # plt.show()
 
     # import sys
     # sys.exit()
@@ -168,13 +173,13 @@ if __name__ == "__main__":
     j = np.ma.zeros([Na, Nnu, Nt], dtype=np.complex128)
     Sigmayinv = np.ma.zeros([Na, Nnu, Nt], dtype=np.float64)
 
-    # # test ML solution
-    # gbar = np.ones_like(gains, dtype=np.complex128)
-    # gbar[...] = tf_StefCal(Vpq, Wpq, Xpq, gbar, Na, Nnu, Nt, A, Sigmayinv, j, tol=5e-3, maxiter=20)
+    # test ML solution
+    gbar = np.ones_like(gains, dtype=np.complex128)
+    gbar[...] = tf_StefCal(Vpq, Wpq, Xpq, gbar, Na, Nnu, Nt, A, Sigmayinv, j, tol=1e-2, maxiter=20)
 
-    # SmoothCal solution
-    gbar2 = np.ones_like(gains, dtype=np.complex128)
-    gbar2[...] = tf_SmoothCal(Vpq, Wpq, Xpq, gbar2, K, Na, Nnu, Nt, A, Sigmayinv, j, tol=5e-3, maxiter=20)
+    # # SmoothCal solution
+    # gbar2 = np.ones_like(gains, dtype=np.complex128)
+    # gbar2[...] = tf_SmoothCal(Vpq, Wpq, Xpq, gbar2, K, Na, Nnu, Nt, A, Sigmayinv, j, tol=1e-2, maxiter=20)
 
     # # check result
     # fig, ax = plt.subplots(nrows=3, ncols=Na, figsize=(15,8))
@@ -186,24 +191,58 @@ if __name__ == "__main__":
     # fig.tight_layout()
     # plt.show()
 
-    # check result
-    fig, ax = plt.subplots(nrows=3, ncols=Na, figsize=(15,8))
+    # plot result
+    rows = ['True', 'Learnt']
+    cols = ['Antenna {}'.format(col) for col in range(1, Na+1)]
+    fig, ax = plt.subplots(nrows=2, ncols=Na, figsize=(15,8))
+    #plt.setp(ax.flat, xlabel=r'$t$', ylabel=r'$\nu$')
+    vmin = 0.9*np.abs(gains).min()
+    vmax = 1.1*np.abs(gains).max()
     for p in xrange(Na):
-        ax[0, p].imshow(np.abs(gains[p]))
-        ax[1, p].imshow(np.abs(gbar2[p]))
-        ax[2, p].imshow(np.abs(gbar2[p] - gains[p]))
+        ax[0, p].imshow(np.abs(gains[p]), vmin=vmin, vmax=vmax)
+        ax[0, p].set_xticks([])
+        ax[0, p].set_yticks([])
+        im = ax[1, p].imshow(np.abs(gbar[p]), vmin=vmin, vmax=vmax)
+        ax[1, p].set_xticks([])
+        ax[1, p].set_yticks([])
 
-    fig.tight_layout()
+    for axs, col in zip(ax[0, :], cols):
+        axs.annotate(col, xy=(0.5, 1), xytext=(0, 5),
+                    xycoords='axes fraction', textcoords='offset points',
+                    size='large', ha='center', va='baseline')
+
+    for axs, row in zip(ax[:, 0], rows):
+        axs.annotate(row, xy=(0, 0.5), xytext=(-axs.yaxis.labelpad - 5, 0),
+                    xycoords=axs.yaxis.label, textcoords='offset points',
+                    size='large', ha='right', va='center')
+
+    fig.subplots_adjust(right=0.8)
+    cbar_ax = fig.add_axes([0.93, 0.05, 0.027, 0.9])
+    fig.colorbar(im, cax=cbar_ax)
+    fig.tight_layout(rect=(0.05, 0.05, 0.9, 0.9))
+    plt.suptitle('Gain comparison')
+    plt.savefig('figures/StefCal_TF_gains.png')
     plt.show()
 
-    fig, ax = plt.subplots(nrows=1, ncols=Na, figsize=(15, 8))
-    tmp = np.abs(gbar2[0] - gains[0])
-    for p in xrange(1, Na):
-        tmp2 = np.abs(gbar2[p] - gains[p])
-        ax[p].imshow(tmp-tmp2)
-        print np.max(tmp-tmp2), (tmp - tmp2).min()
+    fig, ax = plt.subplots(nrows=1, ncols=Na, figsize=(15, 5))
+    vmin = 0.9*np.abs(gbar[p] - gains[p]).min()
+    vmax = 1.1*np.abs(gbar[p] - gains[p]).max()
+    for p in xrange(Na):
+        im = ax[p].imshow(np.abs(gbar[p] - gains[p]), vmin=vmin, vmax=vmax)
+        ax[p].set_xticks([])
+        ax[p].set_yticks([])
 
-    fig.tight_layout()
+    for axs, col in zip(ax, cols):
+        axs.annotate(col, xy=(0.5, 1), xytext=(0, 5),
+                    xycoords='axes fraction', textcoords='offset points',
+                    size='large', ha='center', va='baseline')
+
+    fig.subplots_adjust(right=0.8)
+    cbar_ax = fig.add_axes([0.93, 0.05, 0.027, 0.9])
+    fig.colorbar(im, cax=cbar_ax)
+    fig.tight_layout(rect=(0.05, 0.05, 0.9, 0.9))
+    plt.suptitle('Gain error')
+    plt.savefig('figures/StefCal_TF_gains_diff.png')
     plt.show()
 
 
