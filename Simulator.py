@@ -50,7 +50,7 @@ def sim_uv(Na, Nt, umax, vmax, Autocor=False, rot_params=(1,1)):
             upq[i, j], vpq[i, j] = np.dot(rottheta, np.array([upq[i, 0], vpq[i, 0]]))
     return upq, vpq, pqlist, N
 
-def sim_sky(Npix, Nsource, max_I, lmax, mmax, freqs, ref_freq):
+def sim_sky(Npix, Nsource, max_I, min_I, lmax, mmax, freqs, ref_freq):
     """
     Simulates a sky randomly populated with sources
     :param Npix: 
@@ -73,10 +73,10 @@ def sim_sky(Npix, Nsource, max_I, lmax, mmax, freqs, ref_freq):
         locy = np.random.randint(2, Npix-2)
         locs.append((locx, locy))
         alpha.append(-0.7 + 0.1*np.random.randn(1))
-        I0 = np.abs(max_I*np.random.randn())
+        I0 = np.abs(min_I + (max_I - min_I)*np.random.randn())
         IM[:, i] = I0*(freqs/ref_freq)**alpha[i]
         lmsource.append((ll[locx, locy], mm[locx, locy]))
-    return IM.squeeze(), lmsource, locs, alpha
+    return IM, lmsource, locs, alpha
 
 def sim_T_gains(Na, N, theta, bounds=None):
     """

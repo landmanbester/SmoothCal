@@ -68,7 +68,7 @@ def R_DI(IM, upq, vpq, lm, pqlist, freqs, ref_freq, gains, Xpq, Nnu, Nt, Nsource
                 Xpq[q, p, i, j] = np.conj(Xpq[p, q, i, j])
     return Xpq
 
-@jit(nopython=True, nogil=True, cache=True)
+#@jit(nopython=True, nogil=True, cache=True)
 def R_DD_model(IM, upq, vpq, lm, pqlist, freqs, ref_freq, gains, Xpq, Nnu, Nt, Nsource, Xpq_DD):
     """
     Full response operator including DDE's coded as a DFT.
@@ -98,11 +98,14 @@ def R_DD_model(IM, upq, vpq, lm, pqlist, freqs, ref_freq, gains, Xpq, Nnu, Nt, N
                     complex_phase = -2.0*np.pi*(u*l + v*m)
                     K = np.cos(complex_phase) + 1.0j*np.sin(complex_phase)
                     Xpq_DD[p, q, i, j, s] = K * gains[p, i, j, s] * IM[i, s] * np.conj(gains[q, i, j, s])
+                    Xpq_DD[q, p, i, j, s] = np.conj(Xpq_DD[p, q, i, j, s])
                     Xpq[p, q, i, j] += Xpq_DD[p, q, i, j, s]
+                Xpq[q, p, i, j] = np.conj(Xpq[p, q, i, j])
+
 
     return Xpq, Xpq_DD
 
-@jit(nopython=True, nogil=True, cache=True)
+#@jit(nopython=True, nogil=True, cache=True)
 def R_DD(IM, upq, vpq, lm, pqlist, freqs, ref_freq, gains, Xpq, Nnu, Nt, Nsource):
     """
     Full response operator including DDE's coded as a DFT.
@@ -132,6 +135,7 @@ def R_DD(IM, upq, vpq, lm, pqlist, freqs, ref_freq, gains, Xpq, Nnu, Nt, Nsource
                     complex_phase = -2.0*np.pi*(u*l + v*m)
                     K = np.cos(complex_phase) + 1.0j*np.sin(complex_phase)
                     Xpq[p, q, i, j] += K * gains[p, i, j, s] * IM[i, s] * np.conj(gains[q, i, j, s])
+                Xpq[q, p, i, j] = np.conj(Xpq[p, q, i, j])
     return Xpq
 
 @jit(nopython=True, nogil=True, cache=True)
