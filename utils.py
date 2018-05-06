@@ -251,6 +251,20 @@ def kron_cholesky(A):
             L[i] = np.linalg.cholesky(A[i])
     return L
 
+def kron_kron(A):
+    """
+    Computes the Kronecker product of a series of matrices or vectors 
+    :param A: an array of arrays holding matrices/vectors [A1, A2, ..., AD]
+    :return: the Kronecker product of all elements of A
+    """
+    D = A.shape[0]
+    # expand the kronecker product for A
+    K = np.kron(A[0], A[1])
+    if D > 2:
+        for i in xrange(2, D):
+            K = np.kron(K, A[i])
+    return K
+
 def abs_diff(x, xp):
     """
     Vectorised absolute differences for covariance matrix computation

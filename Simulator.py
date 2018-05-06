@@ -69,10 +69,11 @@ def sim_sky(Npix, Nsource, max_I, min_I, lmax, mmax, freqs, ref_freq):
     alpha = []
     IM = np.zeros([Nnu, Nsource], dtype=np.float64)
     for i in xrange(Nsource):
-        locx = np.random.randint(2, Npix-2)
-        locy = np.random.randint(2, Npix-2)
+        locx = np.random.randint(Npix)
+        locy = np.random.randint(Npix)
         locs.append((locx, locy))
-        alpha.append(-0.7 + 0.1*np.random.randn(1))
+        #alpha.append(-0.7 + 0.1*np.random.randn(1))
+        alpha.append(0.0)
         I0 = np.abs(min_I + (max_I - min_I)*np.random.randn())
         IM[:, i] = I0*(freqs/ref_freq)**alpha[i]
         lmsource.append((ll[locx, locy], mm[locx, locy]))

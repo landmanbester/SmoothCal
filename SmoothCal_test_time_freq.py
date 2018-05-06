@@ -100,12 +100,12 @@ if __name__ == "__main__":
     # seed for reproducibility
     np.random.seed(7426)
     # set time and freq domain
-    Nt = 100
+    Nt = 25
     tmin = 0.0
     tmax = 100.0
     t = np.linspace(tmin, tmax, Nt)
 
-    Nnu = 100
+    Nnu = 25
     numin = 1.0
     numax = 10.0
     nu = np.linspace(numin, numax, Nnu)
@@ -122,9 +122,10 @@ if __name__ == "__main__":
     Npix = 35
     Nsource = 5
     max_I = 1.0
+    min_I = 1e-3
     lmax = 0.1
     mmax = 0.1
-    IM, lm, locs = Simulator.sim_sky(Npix, Nsource, max_I, lmax, mmax, nu, nu[Nnu//2])
+    IM, lm, locs, alpha = Simulator.sim_sky(Npix, Nsource, max_I, min_I, lmax, mmax, nu, nu[Nnu//2])
     #IM[:, 0] = 0.0
 
     # gains
@@ -176,6 +177,10 @@ if __name__ == "__main__":
     # test ML solution
     gbar = np.ones_like(gains, dtype=np.complex128)
     gbar[...] = tf_StefCal(Vpq, Wpq, Xpq, gbar, Na, Nnu, Nt, A, Sigmayinv, j, tol=1e-2, maxiter=20)
+
+    for p in xrange(Na):
+        for v in xrange(Nnu):
+            print (np.abs(gbar[p, v]) - np.abs(gains[p, v])).max(), (np.abs(gbar[p, v]) - np.abs(np.ones_like(gains, dtype=np.complex128))).max()
 
     # # SmoothCal solution
     # gbar2 = np.ones_like(gains, dtype=np.complex128)
