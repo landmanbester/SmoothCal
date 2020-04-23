@@ -1,5 +1,6 @@
 import numpy as np
 import sympy as sm
+from numba import njit
 from africanus.gps.kernels import exponential_squared as expsq
 
 def print_symbolic_jones_chain():
@@ -68,7 +69,7 @@ def print_symbolic_jones_chain():
 
     print('11=', sm.latex(RIME[1,1]))
 
-def symbolic_jones_chain(Print=False):
+def symbolic_jones_chain():
     # scalars
     I, Q, U, V, k, v = sm.symbols("I, Q, U, V, k, v", real=True)
     Bs = sm.Matrix([[I + V, sm.exp(2*sm.I*v**2*k)*(Q + sm.I*U)],[sm.exp(2*sm.I*v**2*k)*(Q - sm.I*U), I - V]])
@@ -119,11 +120,7 @@ def symbolic_jones_chain(Print=False):
                   cp, dp, cq, dq, phip, phiq,
                   I, Q, U, V, k, v)
 
-    # parameters = (cp, dp, cq, dq, phip, phiq, I, Q, U, V, k, v)
-
-    # print(parameters)
-
-    # R00 = numbafy(expression=RIME[0,0], parameters=parameters)
+    
     
     # R01 = numbafy(expression=RIME[0,1], parameters=parameters)
     
@@ -132,16 +129,25 @@ def symbolic_jones_chain(Print=False):
     # R11 = numbafy(expression=RIME[1,1], parameters=parameters)
 
     from sympy.utilities.lambdify import lambdify
+    tmp = len(parameters)*(1.0,)
 
     R00 = lambdify(parameters, RIME[0,0], 'numpy')
 
+    F00 = njit(R00)
+
     R01 = lambdify(parameters, RIME[0,1], 'numpy')
+
+    F01 = njit(R01, fastmath=True)
 
     R10 = lambdify(parameters, RIME[1,0], 'numpy')
 
+    F10 = njit(R10, fastmath=True)
+
     R11 = lambdify(parameters, RIME[1,1], 'numpy')
 
-    return R00, R01, R10, R11
+    F11 = njit(R11, fastmath=True)
+
+    return F00, F01, F10, F11
 
 def define_fields(time, freq, nant):
     xi = {}

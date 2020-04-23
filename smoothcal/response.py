@@ -20,8 +20,10 @@ def param2vis(time_bin_indices, time_bin_counts, antenna1, antenna2,
                          time_bin_indices[t] + time_bin_counts[t]):
             p = int(antenna1[row])
             q = int(antenna2[row])
+            
             phip = phi[t, p]
             phiq = phi[t, q]
+            
             gp0a = g0a[t, p]
             gp0p = g0p[t, p]
             gq0a = g0a[t, q]
@@ -76,28 +78,28 @@ def param2vis(time_bin_indices, time_bin_counts, antenna1, antenna2,
                                          bp00a, bp00p, bp01a, bp01p, bp10a, bp10p, bp11a, bp11p,
                                          bq00a, bq00p, bq01a, bq01p, bq10a, bq10p, bq11a, bq11p,
                                          cp, dp, cq, dq, phip, phiq,
-                                         I, Q, U, V, kappa, nu)
+                                         I, Q, U, V, kappa, freq[nu])
 
                 Vpq[row, nu, 0, 1] = R01(gp0a, gp0p, gp1a, gp1p, gq0a, gq0p, gq1a, gq1p,
                                          kp0, kp1, lp0, lp1, kq0, kq1, lq0, lq1,
                                          bp00a, bp00p, bp01a, bp01p, bp10a, bp10p, bp11a, bp11p,
                                          bq00a, bq00p, bq01a, bq01p, bq10a, bq10p, bq11a, bq11p,
                                          cp, dp, cq, dq, phip, phiq,
-                                         I, Q, U, V, kappa, nu)
+                                         I, Q, U, V, kappa, freq[nu])
 
                 Vpq[row, nu, 1, 0] = R10(gp0a, gp0p, gp1a, gp1p, gq0a, gq0p, gq1a, gq1p,
                                          kp0, kp1, lp0, lp1, kq0, kq1, lq0, lq1,
                                          bp00a, bp00p, bp01a, bp01p, bp10a, bp10p, bp11a, bp11p,
                                          bq00a, bq00p, bq01a, bq01p, bq10a, bq10p, bq11a, bq11p,
                                          cp, dp, cq, dq, phip, phiq,
-                                         I, Q, U, V, kappa, nu)
+                                         I, Q, U, V, kappa, freq[nu])
 
                 Vpq[row, nu, 1, 1] = R11(gp0a, gp0p, gp1a, gp1p, gq0a, gq0p, gq1a, gq1p,
                                          kp0, kp1, lp0, lp1, kq0, kq1, lq0, lq1,
                                          bp00a, bp00p, bp01a, bp01p, bp10a, bp10p, bp11a, bp11p,
                                          bq00a, bq00p, bq01a, bq01p, bq10a, bq10p, bq11a, bq11p,
                                          cp, dp, cq, dq, phip, phiq,
-                                         I, Q, U, V, kappa, nu)
+                                         I, Q, U, V, kappa, freq[nu])
 
     return Vpq
 
@@ -120,7 +122,7 @@ def jones2vis(time_bin_indices, time_bin_counts, antenna1, antenna2,
 
         (time, ant, corr, corr)
 
-    This function is wasteful so is only for testing and verification.
+    This function is only for testing and verification.
     """
     time_bin_indices -= time_bin_indices.min()  # for later dask chunking capability
     ntime, nant, nchan, _, _ = B.shape

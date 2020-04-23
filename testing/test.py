@@ -240,7 +240,7 @@ if __name__=="__main__":
     c = field2param(xi['c'])
     d = field2param(xi['d'])
 
-    R00, R01, R10, R11 = symbolic_jones_chain(Print=False)
+    R00, R01, R10, R11 = symbolic_jones_chain()
 
     param_vs_jones(tbin_idx, tbin_counts, ant1, ant2,
                     g0a, g0p, g1a, g1p, 
