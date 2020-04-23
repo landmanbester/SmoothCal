@@ -1,1 +1,3 @@
--e git+https://github.com/jankoslavic/numbafy.git@master#egg=numbafy
+-e git+https://github.com/ska-sa/codex-africanus#egg=africanus
+-e git+https://gitlab.mpcdf.mpg.de/mtr/pypocketfft#egg=pypocketfft
+-e git+https://gitlab.mpcdf.mpg.de/ift/nifty.git@NIFTy_5#egg=ift

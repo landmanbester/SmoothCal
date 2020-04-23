@@ -133,19 +133,19 @@ def symbolic_jones_chain():
 
     R00 = lambdify(parameters, RIME[0,0], 'numpy')
 
-    F00 = njit(R00)
+    F00 = njit(nogil=True, fastmath=True)(R00)
 
     R01 = lambdify(parameters, RIME[0,1], 'numpy')
 
-    F01 = njit(R01, fastmath=True)
+    F01 = njit(nogil=True, fastmath=True)(R01)
 
     R10 = lambdify(parameters, RIME[1,0], 'numpy')
 
-    F10 = njit(R10, fastmath=True)
+    F10 = njit(nogil=True, fastmath=True)(R10)
 
     R11 = lambdify(parameters, RIME[1,1], 'numpy')
 
-    F11 = njit(R11, fastmath=True)
+    F11 = njit(nogil=True, fastmath=True)(R11)
 
     return F00, F01, F10, F11
 

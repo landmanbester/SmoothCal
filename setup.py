@@ -23,7 +23,6 @@ setuptools.setup(
           'dask',
           "dask[array]",
           "dask-ms[xarray]",
-          'codex-africanus',
           "sympy",
       ],
      classifiers=[

@@ -1,7 +1,7 @@
 import numpy as np
 from numba import jit, prange
 
-# @jit(fastmath=True, cache=True)
+@jit(fastmath=True)
 def param2vis(time_bin_indices, time_bin_counts, antenna1, antenna2,
               g0a, g0p, g1a, g1p, 
               k0, k1, l0, l1, 
