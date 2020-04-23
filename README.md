@@ -1,7 +1,13 @@
 # SmoothCal
 Calibration assuming smooth gain regularisation.
 
-The following dependencies are installed automatically:
+Run 
+
+```
+$ python setup.py develop
+```
+
+to install the following packages from PYPI
 
 numpy\
 scipy\
@@ -13,3 +19,11 @@ dask\
 dask[array]\
 dask-ms[xarray]\
 codex-africanus
+
+Then run
+
+```
+pip install -r requirements.txt
+```
+
+to install packages not on PYPI (currently just numbafy)
