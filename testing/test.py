@@ -4,7 +4,7 @@ from pyrap.tables import table
 from daskms import xds_from_ms, xds_from_table
 from africanus.calibration.utils import chunkify_rows
 from africanus.rime import parallactic_angles, feed_rotation
-from utils import define_fields, params2jones, field2param, symbolic_jones_chain, rime00, rime01, rime10, rime11
+from smoothcal.utils import define_fields, params2jones, field2param, symbolic_jones_chain
 
 def param_vs_jones(time_bin_indices, time_bin_counts, antenna1, antenna2,
                    g0a, g0p, g1a, g1p, 

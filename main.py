@@ -4,8 +4,8 @@ from pyrap.tables import table
 from daskms import xds_from_ms, xds_from_table
 from africanus.calibration.utils import chunkify_rows
 from africanus.rime import parallactic_angles, feed_rotation
-from utils import define_fields, params2jones, field2param, symbolic_jones_chain
-from response import jones2vis, param2vis
+from smoothcal.utils import define_fields, params2jones, field2param, symbolic_jones_chain
+from smoothcal.response import jones2vis, param2vis
 
 def create_parser():
     p = argparse.ArgumentParser()

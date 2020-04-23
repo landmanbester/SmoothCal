@@ -1,11 +1,11 @@
 import numpy as np
 import sympy as sm
-from sympy import init_printing
-init_printing(use_latex=True, wrap_line=True)
-from IPython.display import display
 from africanus.gps.kernels import exponential_squared as expsq
 
 def print_symbolic_jones_chain():
+    from sympy import init_printing
+    init_printing(use_latex=True, wrap_line=True)
+    from IPython.display import display
     # scalars
     I, Q, U, V, k, v = sm.symbols("I Q U V kappa nu", real=True)
     Bs = sm.Matrix([[I + V, sm.exp(2*sm.I*v**2*k)*(Q + sm.I*U)],[sm.exp(2*sm.I*v**2*k)*(Q - sm.I*U), I - V]])
