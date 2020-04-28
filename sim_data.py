@@ -12,10 +12,14 @@ def create_parser():
     p.add_argument("--ms", type=str, required=True)
     p.add_argument("--lsm", type=str, default=None,
                    help="Sky model in tigger-lsm format")
-    p.add_argument("--K-tbl", type=str, default=None)
-    p.add_argument("--G-tbl", type=str, default=None)
-    p.add_argument("--B-tbl", type=str, default=None)
-    p.add_argument("--D-tbl", type=str, default=None)
+    p.add_argument("--K-tbl", type=str, default=None,
+                   help='Electronic delay table')
+    p.add_argument("--G-tbl", type=str, default=None,
+                   help='Complex time variable gain table')
+    p.add_argument("--B-tbl", type=str, default=None,
+                   help='Bandpass/leakage table')
+    p.add_argument("--D-tbl", type=str, default=None,
+                   help='Atmospheric delay table')
     p.add_argument("--data_column", default="DATA", type=str,
                    help="Column to write corrupted data to.")
     p.add_argument("--model_column", default="MODEL_DATA", type=str,
@@ -29,12 +33,9 @@ def create_parser():
     return p
 
 def main(args):
-    # set mock model
-    I = 1.0
-    Q = 0.1
-    U = 0.1
-    V = 0.01
-    kappa = 0.25
+    # choose source (let's use PKS1934 for now since that's MeerKAT's best calibrator)
+    from smoothcal.sources import src_PKS1934_63 
+    ra, dec, spectrum = src_PKS1934_63()  # now we can get I(v) from spectrum function
 
     # get symbolic jones chain
     R00, R01, R10, R11 = symbolic_jones_chain()
