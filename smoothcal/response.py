@@ -141,3 +141,33 @@ def jones2vis(time_bin_indices, time_bin_counts, antenna1, antenna2,
                 Iq = (t, q, nu)
                 Vpq[row, nu] = G[Ip] @ K[Ip] @ B[Ip] @ D[Ip] @ Pp @ Bs[nu] @ Pq.conj().T @ D[Iq].conj().T @ B[Iq].conj().T @ K[Iq].conj().T @ G[Iq].conj().T
     return Vpq
+
+def jacobian(time_bin_indices, time_bin_counts, antenna1, antenna2, freq,
+             R00, R01, R10, R11, dR00, dR01, dR10, dR11,
+             params, solparams, chain, mode='FULL'):
+    time_bin_indices -= time_bin_indices.min()  # for later dask chunking capability
+    ntime  = time_bin_indices.size
+    nant = np.maximum(antenna1.max(), antenna2.max())
+    nrow = antenna1.size
+    nchan = freq.size 
+    if mode == "DIAG":
+        corrs = ['00', '11']
+    elif mode == 'FULL':
+        corr = ['00', '01', '10', '11']
+    else:
+        raise ValueError('Unrecognised mode %s'%mode)
+    
+    J = np.zeros((nrow, nchan, len(corrs), ntime, nchan, len(solparams)), dtype=np.complex128)
+    for t in range(ntime):
+        for row in range(time_bin_indices[t],
+                         time_bin_indices[t] + time_bin_counts[t]):
+            p = int(antenna1[row])
+            q = int(antenna2[row])
+            Pp = P[t, p]
+            Pq = P[t, q]
+            for chan in range(nchan):
+                for icorr, corr in enumerate(corrs):
+                    for iparam, param in enumerate(solparams):
+                        J[row, chan, icorr, t, chan, iparam] = RIME[corr]['deriv'][iparam](params)
+
+

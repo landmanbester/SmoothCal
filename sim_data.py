@@ -35,20 +35,19 @@ def create_parser():
 def main(args):
     # choose source (let's use PKS1934 for now since that's MeerKAT's best calibrator)
     from smoothcal.sources import src_PKS1934_63 
-    ra, dec, spectrum = src_PKS1934_63()  # now we can get I(v) from spectrum function
-
-    # get symbolic jones chain
-    R00, R01, R10, R11 = symbolic_jones_chain()
+    ra, dec, Inu = src_PKS1934_63()  # get spectrum from I(v)
 
     # get time mapping
     time = table(args.ms).getcol('TIME')
     utimes = np.unique(time)
     utimes_per_chunk = utimes.size  # no chunking at this stage
+
+    # chunkify time mapping
     row_chunks, tbin_idx, tbin_counts = chunkify_rows(time, utimes_per_chunk)
     
-    # chunkify time mapping
+    
     xds = xds_from_ms(args.ms, 
-                      columns=('TIME', 'ANTENNA1', 'ANTENNA2', 
+                      columns=('TIME', 'ANTENNA1', 'ANTENNA2', args.data_column, args.weight_column),
                       chunks={"row": -1})[args.fid]  # not chunking for the time being
     
     # subtables

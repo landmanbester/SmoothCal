@@ -30,8 +30,23 @@ def main(args):
     V = 0.01
     kappa = 0.25
 
+    # determine polarisation type
+    poltbl = table(args.ms + '::POLARIZATION')
+    corr_type_set = set(poltbl.getcol('CORR_TYPE').squeeze())
+    if corr_type_set.issubset(set([9, 10, 11, 12])):
+        pol_type = 'linear'
+    elif corr_type_set.issubset(set([5, 6, 7, 8])):
+        pol_type = 'circular'
+    else:
+        raise ValueError("Cannot determine polarisation type "
+                        "from correlations %s. Constructing "
+                        "a feed rotation matrix will not be "
+                        "possible." % (corr_type_set,))
+    poltbl.close()
+
     # get symbolic jones chain
-    R00, R01, R10, R11 = symbolic_jones_chain()
+    jonesterms = 'GKBPD'
+    RIME, params, solparams = symbolic_jones_chain(jonesterms, pol_type)
 
     # get time mapping
     time = table(args.ms).getcol('TIME')
@@ -58,7 +73,7 @@ def main(args):
     pols = dask.compute(pols)[0]
     posn = dask.compute(posns)[0]
 
-    # to stote write list
+    # to store write list
     datasets = []
     for ds in xds:
         if ds.FIELD_ID not in args.field:

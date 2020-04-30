@@ -69,85 +69,243 @@ def print_symbolic_jones_chain():
 
     print('11=', sm.latex(RIME[1,1]))
 
-def symbolic_jones_chain():
-    # scalars
-    I, Q, U, V, k, v = sm.symbols("I, Q, U, V, k, v", real=True)
-    Bs = sm.Matrix([[I + V, sm.exp(2*sm.I*v**2*k)*(Q + sm.I*U)],[sm.exp(2*sm.I*v**2*k)*(Q - sm.I*U), I - V]])
+def symbolic_jones_chain(joness='GKBDP', solvables='11110', poltype='linear'):
+    assert len(joness)==len(solvables)
+    unsolvable_params = ()
+    solvable_params = ()
+    # brightness matrix (assumed fixed for the time being)
+    I, Q, U, V, nu = sm.symbols("I, Q, U, V, nu", real=True)
+    if poltype=='circular':
+        Bs = sm.Matrix([[I + V, Q + sm.I*U],[Q - sm.I*U, I - V]])
+    elif poltype=='linear':
+        Bs = sm.Matrix([[I + Q, U + sm.I*V],[U - sm.I*V, I - Q]])
+    else:
+        raise ValueError('Unrecognised poltype %s'%poltype)
+
+    unsolvable_params += (I, Q, U, V, nu)
+    # LB - TODO - rotation measure jones term
+    # sm.exp(2*sm.I*nu**2*kappa)
 
     # G
-    gp0a, gp0p, gp1a, gp1p, gq0a, gq0p, gq1a, gq1p = sm.symbols("gp0a, gp0p, gp1a, gp1p, gq0a, gq0p, gq1a, gq1p", real=True)
-    Gp = sm.Matrix([[sm.exp(gp0a)*sm.exp(sm.I*gp0p), 0], [0, sm.exp(gp1a)*sm.exp(sm.I*gp1p)]])
-    Gq = sm.Matrix([[sm.exp(gq0a)*sm.exp(sm.I*gq0p), 0], [0, sm.exp(gq1a)*sm.exp(sm.I*gq1p)]])
+    def Gterm():
+        gp0a, gp0p, gp1a, gp1p, gq0a, gq0p, gq1a, gq1p = sm.symbols("gp0a, gp0p, gp1a, gp1p, gq0a, gq0p, gq1a, gq1p", real=True)
+        Gp = sm.Matrix([[sm.exp(gp0a)*sm.exp(sm.I*gp0p), 0], [0, sm.exp(gp1a)*sm.exp(sm.I*gp1p)]])
+        Gq = sm.Matrix([[sm.exp(gq0a)*sm.exp(sm.I*gq0p), 0], [0, sm.exp(gq1a)*sm.exp(sm.I*gq1p)]])
+        return Gp, Gq, (gp0a, gp0p, gp1a, gp1p, gq0a, gq0p, gq1a, gq1p)
 
     # K 
-    kp0, kp1, lp0, lp1, kq0, kq1, lq0, lq1 = sm.symbols("kp0, kp1, lp0, lp1, kq0, kq1, lq0, lq1", real=True)
-    Kp = sm.Matrix([[sm.exp(sm.I*(kp0*v + lp0)), 0], [0, sm.exp(sm.I*(kp1*v + lp1))]])
-    Kq = sm.Matrix([[sm.exp(sm.I*(kq0*v + lq0)), 0], [0, sm.exp(sm.I*(kq1*v + lq1))]])
+    def Kterm():
+        kp0, kp1, lp0, lp1, kq0, kq1, lq0, lq1 = sm.symbols("kp0, kp1, lp0, lp1, kq0, kq1, lq0, lq1", real=True)
+        Kp = sm.Matrix([[sm.exp(sm.I*(kp0*nu + lp0)), 0], [0, sm.exp(sm.I*(kp1*nu + lp1))]])
+        Kq = sm.Matrix([[sm.exp(sm.I*(kq0*nu + lq0)), 0], [0, sm.exp(sm.I*(kq1*nu + lq1))]])
+        return Kp, Kq, (kp0, kp1, lp0, lp1, kq0, kq1, lq0, lq1)
 
-    # Bp
-    bp00a, bp00p, bp01a, bp01p, bp10a, bp10p, bp11a, bp11p = sm.symbols("bp00a, bp00p, bp01a, bp01p, bp10a, bp10p, bp11a, bp11p", real=True)
-    Bp = sm.Matrix([[sm.exp(bp00a)*sm.exp(sm.I*bp00p), sm.exp(bp01a)*sm.exp(sm.I*bp01p)],[sm.exp(bp10a)*sm.exp(sm.I*bp10p), sm.exp(bp11a)*sm.exp(sm.I*bp11p)]])
-    # Bp = sm.Matrix([[sm.exp(bp00a)*sm.exp(sm.I*bp00p), 0],[0, sm.exp(bp11a)*sm.exp(sm.I*bp11p)]])
 
-    # Bq
-    bq00a, bq00p, bq01a, bq01p, bq10a, bq10p, bq11a, bq11p = sm.symbols("bq00a, bq00p, bq01a, bq01p, bq10a, bq10p, bq11a, bq11p", real=True)
-    Bq = sm.Matrix([[sm.exp(bq00a)*sm.exp(sm.I*bq00p), sm.exp(bq01a)*sm.exp(sm.I*bq01p)],[sm.exp(bq10a)*sm.exp(sm.I*bq10p), sm.exp(bq11a)*sm.exp(sm.I*bq11p)]])
-    # Bq = sm.Matrix([[sm.exp(bq00a)*sm.exp(sm.I*bq00p), 0],[0, sm.exp(bq11a)*sm.exp(sm.I*bq11p)]])
+    # B 
+    def Bterm():
+        # Bp
+        bp00a, bp00p, bp01a, bp01p, bp10a, bp10p, bp11a, bp11p = sm.symbols("bp00a, bp00p, bp01a, bp01p, bp10a, bp10p, bp11a, bp11p", real=True)
+        Bp = sm.Matrix([[sm.exp(bp00a)*sm.exp(sm.I*bp00p), sm.exp(bp01a)*sm.exp(sm.I*bp01p)],[sm.exp(bp10a)*sm.exp(sm.I*bp10p), sm.exp(bp11a)*sm.exp(sm.I*bp11p)]])
+        # Bp = sm.Matrix([[sm.exp(bp00a)*sm.exp(sm.I*bp00p), 0],[0, sm.exp(bp11a)*sm.exp(sm.I*bp11p)]])
+
+        # Bq
+        bq00a, bq00p, bq01a, bq01p, bq10a, bq10p, bq11a, bq11p = sm.symbols("bq00a, bq00p, bq01a, bq01p, bq10a, bq10p, bq11a, bq11p", real=True)
+        Bq = sm.Matrix([[sm.exp(bq00a)*sm.exp(sm.I*bq00p), sm.exp(bq01a)*sm.exp(sm.I*bq01p)],[sm.exp(bq10a)*sm.exp(sm.I*bq10p), sm.exp(bq11a)*sm.exp(sm.I*bq11p)]])
+        # Bq = sm.Matrix([[sm.exp(bq00a)*sm.exp(sm.I*bq00p), 0],[0, sm.exp(bq11a)*sm.exp(sm.I*bq11p)]])
+        return Bp, Bq, (bp00a, bp00p, bp01a, bp01p, bp10a, bp10p, bp11a, bp11p, bq00a, bq00p, bq01a, bq01p, bq10a, bq10p, bq11a, bq11p)
 
     # D
-    cp, dp, cq, dq = sm.symbols("cp, dp, cq, dq", real=True)
-    # Dp = sm.exp(sm.I*(cp*v + dp))*sm.eye(2)
-    Dp = sm.Matrix([[sm.exp(sm.I*(cp*v + dp)), 0], [0, sm.exp(sm.I*(cp*v + dp))]])
-    # Dq = sm.exp(sm.I*(cq*v + dq))*sm.eye(2)
-    Dq = sm.Matrix([[sm.exp(sm.I*(cq*v + dq)), 0], [0, sm.exp(sm.I*(cq*v + dq))]])
+    def Dterm():
+        cp, dp, cq, dq = sm.symbols("cp, dp, cq, dq", real=True)
+        # Dp = sm.exp(sm.I*(cp*v + dp))*sm.eye(2)
+        Dp = sm.Matrix([[sm.exp(sm.I*(cp*nu + dp)), 0], [0, sm.exp(sm.I*(cp*nu + dp))]])
+        # Dq = sm.exp(sm.I*(cq*v + dq))*sm.eye(2)
+        Dq = sm.Matrix([[sm.exp(sm.I*(cq*nu + dq)), 0], [0, sm.exp(sm.I*(cq*nu + dq))]])
+        return Dp, Dq, (cp, dp, cq, dq)
 
     # P
-    phip, phiq = sm.symbols('phip, phiq', real=True)
-    Pp = sm.Matrix([[sm.exp(-sm.I*phip), 0],[0, sm.exp(sm.I*phip)]])
-    Pq = sm.Matrix([[sm.exp(-sm.I*phiq), 0],[0, sm.exp(sm.I*phiq)]])
+    def Pterm():
+        phip, phiq = sm.symbols('phip, phiq', real=True)
+        if poltype == 'circular':
+            Pp = sm.Matrix([[sm.exp(-sm.I*phip), 0],[0, sm.exp(sm.I*phip)]])
+            Pq = sm.Matrix([[sm.exp(-sm.I*phiq), 0],[0, sm.exp(sm.I*phiq)]])
+        elif poltype=='linear':
+            Pp = sm.Matrix([[sm.cos(phip), -sm.sin(phip)],[sm.sin(phip), sm.cos(phip)]])
+            Pq = sm.Matrix([[sm.cos(phiq), -sm.sin(phiq)],[sm.sin(phiq), sm.cos(phiq)]])
+        else:
+            raise ValueError('Unrecognised poltype %s'%poltype)
+        return Pp, Pq, (phip, phiq)
 
-    RIME = Gp*Kp*Bp*Dp*Pp*Bs*Pq.H*Dq.H*Bq.H*Kq.H*Gq.H
-    # RIME = Dp*Pp*Bs*Pq.H*Dq.H
+    # build RIME model
+    print("Constructing symbolic RIME")
+    RIME = Bs
+    for jones in joness[::-1]:  # need to traverse Jones chain in reverse
+        if jones == 'G':
+            print("G")
+            Gp, Gq, Gparams = Gterm()
+            RIME = sm.simplify(Gp * RIME * Gq.H)
+            ind = joness.find('G')
+            if bool(solvables[ind]):
+                solvable_params += Gparams
+            else:
+                unsolvable_params += Gparams
+        elif jones == 'K':
+            print("K")
+            Kp, Kq, Kparams = Kterm()
+            RIME = sm.simplify(Kp * RIME * Kq.H)
+            ind = joness.find('K')
+            if bool(solvables[ind]):
+                solvable_params += Kparams
+            else:
+                unsolvable_params += Kparams
+        elif jones == 'B':
+            print("B")
+            Bp, Bq, Bparams = Bterm()
+            RIME = sm.simplify(Bp * RIME * Bq.H)
+            ind = joness.find('B')
+            if bool(solvables[ind]):
+                solvable_params += Bparams
+            else:
+                unsolvable_params += Bparams
+        elif jones == 'D':
+            print("D")
+            Dp, Dq, Dparams = Dterm()
+            RIME = sm.simplify(Dp * RIME * Dq.H)
+            ind = joness.find('D')
+            if bool(solvables[ind]):
+                solvable_params += Dparams
+            else:
+                unsolvable_params += Dparams
+        elif jones == 'P':
+            print('P')
+            Pp, Pq, Pparams = Pterm()
+            RIME = sm.simplify(Pp * RIME * Pq.H)
+            ind = joness.find('P')
+            if bool(solvables[ind]):
+                solvable_params += Pparams
+            else:
+                unsolvable_params += Pparams            
+        else:
+            raise ValueError("Unrecognised Jones term %s"%jones)
+    
     RIME = sm.simplify(RIME) 
 
-    # from numba import jit
-    # from numbafy import numbafy
+    parameters = solvable_params + unsolvable_params
 
-    parameters = (gp0a, gp0p, gp1a, gp1p, gq0a, gq0p, gq1a, gq1p,
-                  kp0, kp1, lp0, lp1, kq0, kq1, lq0, lq1,
-                  bp00a, bp00p, bp01a, bp01p, bp10a, bp10p, bp11a, bp11p,
-                  bq00a, bq00p, bq01a, bq01p, bq10a, bq10p, bq11a, bq11p,
-                  cp, dp, cq, dq, phip, phiq,
-                  I, Q, U, V, k, v)
-
-    
-    
-    # R01 = numbafy(expression=RIME[0,1], parameters=parameters)
-    
-    # R10 = numbafy(expression=RIME[1,0], parameters=parameters)
-    
-    # R11 = numbafy(expression=RIME[1,1], parameters=parameters)
-
+    # symbolic -> LLVM
     from sympy.utilities.lambdify import lambdify
-    tmp = len(parameters)*(1.0,)
 
-    R00 = lambdify(parameters, RIME[0,0], 'numpy')
+    # 00
+    print('Compiling 00')
+    tmp = lambdify(parameters, RIME[0,0], 'numpy')
+    R00 = njit(nogil=True, fastmath=True)(tmp)
+    dR00 = ()
+    for param in solvable_params:
+        print(str(param))
+        tmp = sm.simplify(RIME[0,0].diff(param))
+        tmp = lambdify(parameters, tmp, 'numpy')
+        dR00 += (njit(nogil=True, fastmath=True)(tmp),)
 
-    F00 = njit(nogil=True, fastmath=True)(R00)
+    # 01
+    print('Compiling 01')
+    tmp = lambdify(parameters, RIME[0,1], 'numpy')
+    R01 = njit(nogil=True, fastmath=True)(tmp)
+    dR01 = ()
+    for param in solvable_params:
+        print(str(param))
+        tmp = sm.simplify(RIME[0,1].diff(param))
+        tmp = lambdify(parameters, tmp, 'numpy')
+        dR01 += (njit(nogil=True, fastmath=True)(tmp),)
 
-    R01 = lambdify(parameters, RIME[0,1], 'numpy')
+    # 10
+    print('Compiling 10')
+    tmp = lambdify(parameters, RIME[1,0], 'numpy')
+    R10 = njit(nogil=True, fastmath=True)(tmp)
+    dR10 = ()
+    for param in solvable_params:
+        print(str(param))
+        tmp = sm.simplify(RIME[1,0].diff(param))
+        tmp = lambdify(parameters, tmp, 'numpy')
+        dR10 += (njit(nogil=True, fastmath=True)(tmp),)
 
-    F01 = njit(nogil=True, fastmath=True)(R01)
+    # 11
+    print('Compiling 11')
+    tmp = lambdify(parameters, RIME[1,1], 'numpy')
+    R11 = njit(nogil=True, fastmath=True)(tmp)
+    dR11 = ()
+    for param in solvable_params:
+        print(str(param))
+        tmp = sm.simplify(RIME[1,1].diff(param))
+        tmp = lambdify(parameters, tmp, 'numpy')
+        dR11 += (njit(nogil=True, fastmath=True)(tmp),)
 
-    R10 = lambdify(parameters, RIME[1,0], 'numpy')
+    return R00, R01, R10, R11, dR00, dR01, dR10, dR11
 
-    F10 = njit(nogil=True, fastmath=True)(R10)
+def domain2param_mapping(joness='GKBDP'):
+    field_names = ()
+    field_inds = ()
+    print("Constructing symbolic RIME")
+    for jones in joness[::-1]:  # need to traverse Jones chain in reverse
+        if jones == 'G':
+            field_names += 2*('g0a', 'g0p', 'g1a', 'g1p')
+            field_inds += (lambda t, p, q, nu: ((t, p, 0),(t, p, 0),(t, p, 0),(t, p, 0),(t, q, 0),(t, q, 0),(t, q, 0),(t, q, 0)),)
+        elif jones == 'K':
+            field_names += 2*('k0', 'k1', 'l0', 'l1')
+            field_inds += (lambda t, p, q, nu: ((t, p, 0),(t, p, 0),(t, p, 0),(t, p, 0),(t, q, 0),(t, q, 0),(t, q, 0),(t, q, 0)),)
+        elif jones == 'B':
+            field_names += 2*('b00a', 'b00p', 'b01a', 'b01p', 'b10a', 'b10p', 'b11a', 'b11p')
+            field_inds += (lambda t, p, q, nu: ((0, p, nu),(0, p, nu),(0, p, nu),(0, p, nu),(0, p, nu),(0, p, nu),(0, p, nu),(0, p, nu),
+                                                (0, q, nu),(0, q, nu),(0, q, nu),(0, q, nu),(0, q, nu),(0, q, nu),(0, q, nu),(0, q, nu)),)
+        elif jones == 'D':
+            field_names += 2*('c', 'd')
+            field_inds += (lambda t, p, q, nu: ((t, p, 0),(t, p, 0),(t, q, 0),(t, q, 0)),)
+        elif jones == 'P':
+            field_names += 2*('phi',)
+            field_inds += (lambda t, p, q, nu: ((t, p, 0),(t, q, 0)),)
+            
+        else:
+            raise ValueError("Unrecognised Jones term %s"%jones)
 
-    R11 = lambdify(parameters, RIME[1,1], 'numpy')
+    # construct (t, p, q, nu) -> field_inds function
+    func = lambda i:field_inds[i]
+    mapping = map(func, range(len(field_inds)))
 
-    F11 = njit(nogil=True, fastmath=True)(R11)
+    return field_names, mapping
 
-    return F00, F01, F10, F11
+
+def define_field_dct(ntime, nchan, nant, joness):
+    xi = {}
+    if 'G' in joness:
+        xi['g0a'] = np.random.randn(ntime, nant, 1)
+        xi['g0p'] = np.random.randn(ntime, nant, 1)
+        xi['g1a'] = np.random.randn(ntime, nant, 1)
+        xi['g1p'] = np.random.randn(ntime, nant, 1)
+
+    if 'K' in joness:
+        xi['k0'] = np.random.randn(ntime, nant, 1)
+        xi['k1'] = np.random.randn(ntime, nant, 1)
+        xi['l0'] = np.random.randn(ntime, nant, 1)
+        xi['l1'] = np.random.randn(ntime, nant, 1)
+
+    if 'B' in joness:
+        xi['b00a'] = np.random.randn(1, nant, nchan)
+        xi['b00p'] = np.random.randn(1, nant, nchan)
+        xi['b01a'] = np.random.randn(1, nant, nchan)
+        xi['b01p'] = np.random.randn(1, nant, nchan)
+        xi['b10a'] = np.random.randn(1, nant, nchan)
+        xi['b10p'] = np.random.randn(1, nant, nchan)
+        xi['b11a'] = np.random.randn(1, nant, nchan)
+        xi['b11p'] = np.random.randn(1, nant, nchan)
+
+    if 'D' in joness:
+        xi['c'] = np.random.randn(ntime, nant, 1)
+        xi['d'] = np.random.randn(ntime, nant, 1)
+
+    if 'P' in joness:
+        xi['phi'] = np.random.randn(ntime, nant, 1)
+
+    return xi
+    
 
 def define_fields(time, freq, nant):
     xi = {}
