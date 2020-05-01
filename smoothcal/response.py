@@ -1,5 +1,6 @@
 import numpy as np
 from numba import jit, prange
+from operator import itemgetter
 
 @jit(fastmath=True)
 def param2vis(time_bin_indices, time_bin_counts, antenna1, antenna2,
@@ -142,32 +143,49 @@ def jones2vis(time_bin_indices, time_bin_counts, antenna1, antenna2,
                 Vpq[row, nu] = G[Ip] @ K[Ip] @ B[Ip] @ D[Ip] @ Pp @ Bs[nu] @ Pq.conj().T @ D[Iq].conj().T @ B[Iq].conj().T @ K[Iq].conj().T @ G[Iq].conj().T
     return Vpq
 
-def jacobian(time_bin_indices, time_bin_counts, antenna1, antenna2, freq,
-             R00, R01, R10, R11, dR00, dR01, dR10, dR11,
-             params, solparams, chain, mode='FULL'):
+def jacobian(time_bin_indices, time_bin_counts, antenna1, antenna2, freq,  # generic params
+             R00, R01, R10, R11, dR00, dR01, dR10, dR11,  # RIME funcs
+             xi, mapping, field_names,  # calibration parameters
+             I, Q, U, V,  # imaging params
+             ):
     time_bin_indices -= time_bin_indices.min()  # for later dask chunking capability
     ntime  = time_bin_indices.size
     nant = np.maximum(antenna1.max(), antenna2.max())
     nrow = antenna1.size
-    nchan = freq.size 
-    if mode == "DIAG":
-        corrs = ['00', '11']
-    elif mode == 'FULL':
-        corr = ['00', '01', '10', '11']
-    else:
-        raise ValueError('Unrecognised mode %s'%mode)
-    
-    J = np.zeros((nrow, nchan, len(corrs), ntime, nchan, len(solparams)), dtype=np.complex128)
+    nchan = freq.size
+    param_arrays = = itemgetter(*field_names)(xi)
+    npar = len(dR00)
+    Vpq = np.zeros((nrow, nchan, 4), dtype=np.complex128)
+    Jac = np.zeros((nrow, nchan, 4, ntime, nchan, len(solparams)), dtype=np.complex128)
     for t in range(ntime):
         for row in range(time_bin_indices[t],
                          time_bin_indices[t] + time_bin_counts[t]):
             p = int(antenna1[row])
             q = int(antenna2[row])
-            Pp = P[t, p]
-            Pq = P[t, q]
             for chan in range(nchan):
-                for icorr, corr in enumerate(corrs):
-                    for iparam, param in enumerate(solparams):
-                        J[row, chan, icorr, t, chan, iparam] = RIME[corr]['deriv'][iparam](params)
+                inds = ()
+                for tmp in mapping:
+                    inds += tmp(t, p, q, chan)
+                params = ()
+                for i in range(len(param_arrays)):
+                    params += (param_arrays[i][inds[i]][0],)
+                params += (I, Q, U, V, freq[nu])
+
+                Vpq[row, chan, 0] = R00(params)
+                Vpq[row, chan, 1] = R10(params)
+                Vpq[row, chan, 2] = R01(params)
+                Vpq[row, chan, 3] = R11(params)
+
+                for ipar in range(npar):
+                    ind00 = (row, chan, 0) + inds[ipar]
+                    ind10 = (row, chan, 1) + inds[ipar]
+                    ind01 = (row, chan, 2) + inds[ipar]
+                    ind11 = (row, chan, 3) + inds[ipar]
+                    Jac[ind00] = dR00[ipar](params)
+                    Jac[ind10] = dR10[ipar](params)
+                    Jac[ind01] = dR01[ipar](params)
+                    Jac[ind11] = dR11[ipar](params)
+
+    return Vpq, Jac
 
 

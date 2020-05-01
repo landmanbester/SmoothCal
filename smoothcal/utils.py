@@ -82,7 +82,7 @@ def symbolic_jones_chain(joness='GKBDP', solvables='11110', poltype='linear'):
     else:
         raise ValueError('Unrecognised poltype %s'%poltype)
 
-    unsolvable_params += (I, Q, U, V, nu)
+    unsolvable_params += (nu, I, Q, U, V)
     # LB - TODO - rotation measure jones term
     # sm.exp(2*sm.I*nu**2*kappa)
 
@@ -192,6 +192,8 @@ def symbolic_jones_chain(joness='GKBDP', solvables='11110', poltype='linear'):
 
     parameters = solvable_params + unsolvable_params
 
+    print(parameters)
+
     # symbolic -> LLVM
     from sympy.utilities.lambdify import lambdify
 
@@ -244,7 +246,6 @@ def symbolic_jones_chain(joness='GKBDP', solvables='11110', poltype='linear'):
 def domain2param_mapping(joness='GKBDP'):
     field_names = ()
     field_inds = ()
-    print("Constructing symbolic RIME")
     for jones in joness[::-1]:  # need to traverse Jones chain in reverse
         if jones == 'G':
             field_names += 2*('g0a', 'g0p', 'g1a', 'g1p')
@@ -262,6 +263,36 @@ def domain2param_mapping(joness='GKBDP'):
         elif jones == 'P':
             field_names += 2*('phi',)
             field_inds += (lambda t, p, q, nu: ((t, p, 0),(t, q, 0)),)
+            
+        else:
+            raise ValueError("Unrecognised Jones term %s"%jones)
+
+    # construct (t, p, q, nu) -> field_inds function
+    func = lambda i:field_inds[i]
+    mapping = map(func, range(len(field_inds)))
+
+    return field_names, mapping
+
+def domain2param_mapping2(joness='GKBDP'):
+    field_names = ()
+    field_inds = ()
+    for jones in joness[::-1]:  # need to traverse Jones chain in reverse
+        if jones == 'G':
+            field_names += 2*('g0a', 'g0p', 'g1a', 'g1p')
+            field_inds += (lambda t, p, q, nu: ((t, p, slice(None)),(t, p, slice(None)),(t, p, slice(None)),(t, p, slice(None)),(t, q, slice(None)),(t, q, slice(None)),(t, q, slice(None)),(t, q, slice(None))),)
+        elif jones == 'K':
+            field_names += 2*('k0', 'k1', 'l0', 'l1')
+            field_inds += (lambda t, p, q, nu: ((t, p, slice(None)),(t, p, slice(None)),(t, p, slice(None)),(t, p, slice(None)),(t, q, slice(None)),(t, q, slice(None)),(t, q, slice(None)),(t, q, slice(None))),)
+        elif jones == 'B':
+            field_names += 2*('b00a', 'b00p', 'b01a', 'b01p', 'b10a', 'b10p', 'b11a', 'b11p')
+            field_inds += (lambda t, p, q, nu: ((slice(None), p, nu),(slice(None), p, nu),(slice(None), p, nu),(slice(None), p, nu),(slice(None), p, nu),(slice(None), p, nu),(slice(None), p, nu),(slice(None), p, nu),
+                                                (slice(None), q, nu),(slice(None), q, nu),(slice(None), q, nu),(slice(None), q, nu),(slice(None), q, nu),(slice(None), q, nu),(slice(None), q, nu),(slice(None), q, nu)),)
+        elif jones == 'D':
+            field_names += 2*('c', 'd')
+            field_inds += (lambda t, p, q, nu: ((t, p, slice(None)),(t, p, slice(None)),(t, q, slice(None)),(t, q, slice(None))),)
+        elif jones == 'P':
+            field_names += 2*('phi',)
+            field_inds += (lambda t, p, q, nu: ((t, p, slice(None)),(t, q, slice(None))),)
             
         else:
             raise ValueError("Unrecognised Jones term %s"%jones)
