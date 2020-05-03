@@ -145,7 +145,7 @@ def symbolic_jones_chain(joness='GKBDP', solvables='11110', poltype='linear'):
             Gp, Gq, Gparams = Gterm()
             RIME = sm.simplify(Gp * RIME * Gq.H)
             ind = joness.find('G')
-            if bool(solvables[ind]):
+            if int(solvables[ind]):
                 solvable_params += Gparams
             else:
                 unsolvable_params += Gparams
@@ -154,7 +154,7 @@ def symbolic_jones_chain(joness='GKBDP', solvables='11110', poltype='linear'):
             Kp, Kq, Kparams = Kterm()
             RIME = sm.simplify(Kp * RIME * Kq.H)
             ind = joness.find('K')
-            if bool(solvables[ind]):
+            if int(solvables[ind]):
                 solvable_params += Kparams
             else:
                 unsolvable_params += Kparams
@@ -163,7 +163,7 @@ def symbolic_jones_chain(joness='GKBDP', solvables='11110', poltype='linear'):
             Bp, Bq, Bparams = Bterm()
             RIME = sm.simplify(Bp * RIME * Bq.H)
             ind = joness.find('B')
-            if bool(solvables[ind]):
+            if int(solvables[ind]):
                 solvable_params += Bparams
             else:
                 unsolvable_params += Bparams
@@ -172,7 +172,7 @@ def symbolic_jones_chain(joness='GKBDP', solvables='11110', poltype='linear'):
             Dp, Dq, Dparams = Dterm()
             RIME = sm.simplify(Dp * RIME * Dq.H)
             ind = joness.find('D')
-            if bool(solvables[ind]):
+            if int(solvables[ind]):
                 solvable_params += Dparams
             else:
                 unsolvable_params += Dparams
@@ -181,7 +181,7 @@ def symbolic_jones_chain(joness='GKBDP', solvables='11110', poltype='linear'):
             Pp, Pq, Pparams = Pterm()
             RIME = sm.simplify(Pp * RIME * Pq.H)
             ind = joness.find('P')
-            if bool(solvables[ind]):
+            if int(solvables[ind]):
                 solvable_params += Pparams
             else:
                 unsolvable_params += Pparams            
@@ -243,97 +243,109 @@ def symbolic_jones_chain(joness='GKBDP', solvables='11110', poltype='linear'):
 
     return R00, R01, R10, R11, dR00, dR01, dR10, dR11
 
-def domain2param_mapping(joness='GKBDP'):
+def domain2param_mapping(joness, solvables):
     field_names = ()
     field_inds = ()
+    solvable_names = ()
     for jones in joness[::-1]:  # need to traverse Jones chain in reverse
         if jones == 'G':
+            ind = joness.find('G')
+            if int(solvables[ind]):
+                solvable_names += 2*('g0a', 'g0p', 'g1a', 'g1p')
             field_names += 2*('g0a', 'g0p', 'g1a', 'g1p')
-            field_inds += (lambda t, p, q, nu: ((t, p, 0),(t, p, 0),(t, p, 0),(t, p, 0),(t, q, 0),(t, q, 0),(t, q, 0),(t, q, 0)),)
+            field_inds += (lambda t, p, q, nu: ((p, t, 0),(p, t, 0),(p, t, 0),(p, t, 0),(q, t, 0),(q, t, 0),(q, t, 0),(q, t, 0)),)
         elif jones == 'K':
+            ind = joness.find('K')
+            if int(solvables[ind]):
+                solvable_names += 2*('k0', 'k1', 'l0', 'l1')
             field_names += 2*('k0', 'k1', 'l0', 'l1')
-            field_inds += (lambda t, p, q, nu: ((t, p, 0),(t, p, 0),(t, p, 0),(t, p, 0),(t, q, 0),(t, q, 0),(t, q, 0),(t, q, 0)),)
+            field_inds += (lambda t, p, q, nu: ((p, t, 0),(p, t, 0),(p, t, 0),(p, t, 0),(q, t, 0),(q, t, 0),(q, t, 0),(q, t, 0)),)
         elif jones == 'B':
+            ind = joness.find('B')
+            if int(solvables[ind]):
+                solvable_names += 2*('b00a', 'b00p', 'b01a', 'b01p', 'b10a', 'b10p', 'b11a', 'b11p')
             field_names += 2*('b00a', 'b00p', 'b01a', 'b01p', 'b10a', 'b10p', 'b11a', 'b11p')
-            field_inds += (lambda t, p, q, nu: ((0, p, nu),(0, p, nu),(0, p, nu),(0, p, nu),(0, p, nu),(0, p, nu),(0, p, nu),(0, p, nu),
-                                                (0, q, nu),(0, q, nu),(0, q, nu),(0, q, nu),(0, q, nu),(0, q, nu),(0, q, nu),(0, q, nu)),)
+            field_inds += (lambda t, p, q, nu: ((p, 0, nu),(p, 0, nu),(p, 0, nu),(p, 0, nu),(p, 0, nu),(p, 0, nu),(p, 0, nu),(p, 0, nu),
+                                                (q, 0, nu),(q, 0, nu),(q, 0, nu),(q, 0, nu),(q, 0, nu),(q, 0, nu),(q, 0, nu),(q, 0, nu)),)
         elif jones == 'D':
+            ind = joness.find('D')
+            if int(solvables[ind]):
+                solvable_names += 2*('c', 'd')
             field_names += 2*('c', 'd')
-            field_inds += (lambda t, p, q, nu: ((t, p, 0),(t, p, 0),(t, q, 0),(t, q, 0)),)
+            field_inds += (lambda t, p, q, nu: ((p, t, 0),(p, t, 0),(q, t, 0),(q, t, 0)),)
         elif jones == 'P':
+            ind = joness.find('P')
+            if int(solvables[ind]):
+                solvable_names += 2*('phi',)
             field_names += 2*('phi',)
-            field_inds += (lambda t, p, q, nu: ((t, p, 0),(t, q, 0)),)
+            field_inds += (lambda t, p, q, nu: ((p, t, 0),(q, t, 0)),)
             
         else:
             raise ValueError("Unrecognised Jones term %s"%jones)
 
-    # construct (t, p, q, nu) -> field_inds function
-    func = lambda i:field_inds[i]
-    mapping = map(func, range(len(field_inds)))
+    return field_names, field_inds, solvable_names
 
-    return field_names, mapping
-
-def domain2param_mapping2(joness='GKBDP'):
-    field_names = ()
-    field_inds = ()
-    for jones in joness[::-1]:  # need to traverse Jones chain in reverse
-        if jones == 'G':
-            field_names += 2*('g0a', 'g0p', 'g1a', 'g1p')
-            field_inds += (lambda t, p, q, nu: ((t, p, slice(None)),(t, p, slice(None)),(t, p, slice(None)),(t, p, slice(None)),(t, q, slice(None)),(t, q, slice(None)),(t, q, slice(None)),(t, q, slice(None))),)
-        elif jones == 'K':
-            field_names += 2*('k0', 'k1', 'l0', 'l1')
-            field_inds += (lambda t, p, q, nu: ((t, p, slice(None)),(t, p, slice(None)),(t, p, slice(None)),(t, p, slice(None)),(t, q, slice(None)),(t, q, slice(None)),(t, q, slice(None)),(t, q, slice(None))),)
-        elif jones == 'B':
-            field_names += 2*('b00a', 'b00p', 'b01a', 'b01p', 'b10a', 'b10p', 'b11a', 'b11p')
-            field_inds += (lambda t, p, q, nu: ((slice(None), p, nu),(slice(None), p, nu),(slice(None), p, nu),(slice(None), p, nu),(slice(None), p, nu),(slice(None), p, nu),(slice(None), p, nu),(slice(None), p, nu),
-                                                (slice(None), q, nu),(slice(None), q, nu),(slice(None), q, nu),(slice(None), q, nu),(slice(None), q, nu),(slice(None), q, nu),(slice(None), q, nu),(slice(None), q, nu)),)
-        elif jones == 'D':
-            field_names += 2*('c', 'd')
-            field_inds += (lambda t, p, q, nu: ((t, p, slice(None)),(t, p, slice(None)),(t, q, slice(None)),(t, q, slice(None))),)
-        elif jones == 'P':
-            field_names += 2*('phi',)
-            field_inds += (lambda t, p, q, nu: ((t, p, slice(None)),(t, q, slice(None))),)
+# def domain2param_mapping2(joness='GKBDP'):
+#     field_names = ()
+#     field_inds = ()
+#     for jones in joness[::-1]:  # need to traverse Jones chain in reverse
+#         if jones == 'G':
+#             field_names += 2*('g0a', 'g0p', 'g1a', 'g1p')
+#             field_inds += (lambda t, p, q, nu: ((t, p, slice(None)),(t, p, slice(None)),(t, p, slice(None)),(t, p, slice(None)),(t, q, slice(None)),(t, q, slice(None)),(t, q, slice(None)),(t, q, slice(None))),)
+#         elif jones == 'K':
+#             field_names += 2*('k0', 'k1', 'l0', 'l1')
+#             field_inds += (lambda t, p, q, nu: ((t, p, slice(None)),(t, p, slice(None)),(t, p, slice(None)),(t, p, slice(None)),(t, q, slice(None)),(t, q, slice(None)),(t, q, slice(None)),(t, q, slice(None))),)
+#         elif jones == 'B':
+#             field_names += 2*('b00a', 'b00p', 'b01a', 'b01p', 'b10a', 'b10p', 'b11a', 'b11p')
+#             field_inds += (lambda t, p, q, nu: ((slice(None), p, nu),(slice(None), p, nu),(slice(None), p, nu),(slice(None), p, nu),(slice(None), p, nu),(slice(None), p, nu),(slice(None), p, nu),(slice(None), p, nu),
+#                                                 (slice(None), q, nu),(slice(None), q, nu),(slice(None), q, nu),(slice(None), q, nu),(slice(None), q, nu),(slice(None), q, nu),(slice(None), q, nu),(slice(None), q, nu)),)
+#         elif jones == 'D':
+#             field_names += 2*('c', 'd')
+#             field_inds += (lambda t, p, q, nu: ((t, p, slice(None)),(t, p, slice(None)),(t, q, slice(None)),(t, q, slice(None))),)
+#         elif jones == 'P':
+#             field_names += 2*('phi',)
+#             field_inds += (lambda t, p, q, nu: ((t, p, slice(None)),(t, q, slice(None))),)
             
-        else:
-            raise ValueError("Unrecognised Jones term %s"%jones)
+#         else:
+#             raise ValueError("Unrecognised Jones term %s"%jones)
 
-    # construct (t, p, q, nu) -> field_inds function
-    func = lambda i:field_inds[i]
-    mapping = map(func, range(len(field_inds)))
+#     # construct (t, p, q, nu) -> field_inds function
+#     func = lambda i:field_inds[i]
+#     mapping = map(func, range(len(field_inds)))
 
-    return field_names, mapping
+#     return field_names, mapping
 
 
 def define_field_dct(ntime, nchan, nant, joness):
     xi = {}
     if 'G' in joness:
-        xi['g0a'] = np.random.randn(ntime, nant, 1)
-        xi['g0p'] = np.random.randn(ntime, nant, 1)
-        xi['g1a'] = np.random.randn(ntime, nant, 1)
-        xi['g1p'] = np.random.randn(ntime, nant, 1)
+        xi['g0a'] = np.random.randn(nant, ntime, 1)
+        xi['g0p'] = np.random.randn(nant, ntime, 1)
+        xi['g1a'] = np.random.randn(nant, ntime, 1)
+        xi['g1p'] = np.random.randn(nant, ntime, 1)
 
     if 'K' in joness:
-        xi['k0'] = np.random.randn(ntime, nant, 1)
-        xi['k1'] = np.random.randn(ntime, nant, 1)
-        xi['l0'] = np.random.randn(ntime, nant, 1)
-        xi['l1'] = np.random.randn(ntime, nant, 1)
+        xi['k0'] = np.random.randn(nant, ntime, 1)
+        xi['k1'] = np.random.randn(nant, ntime, 1)
+        xi['l0'] = np.random.randn(nant, ntime, 1)
+        xi['l1'] = np.random.randn(nant, ntime, 1)
 
     if 'B' in joness:
-        xi['b00a'] = np.random.randn(1, nant, nchan)
-        xi['b00p'] = np.random.randn(1, nant, nchan)
-        xi['b01a'] = np.random.randn(1, nant, nchan)
-        xi['b01p'] = np.random.randn(1, nant, nchan)
-        xi['b10a'] = np.random.randn(1, nant, nchan)
-        xi['b10p'] = np.random.randn(1, nant, nchan)
-        xi['b11a'] = np.random.randn(1, nant, nchan)
-        xi['b11p'] = np.random.randn(1, nant, nchan)
+        xi['b00a'] = np.random.randn(nant, 1, nchan)
+        xi['b00p'] = np.random.randn(nant, 1, nchan)
+        xi['b01a'] = np.random.randn(nant, 1, nchan)
+        xi['b01p'] = np.random.randn(nant, 1, nchan)
+        xi['b10a'] = np.random.randn(nant, 1, nchan)
+        xi['b10p'] = np.random.randn(nant, 1, nchan)
+        xi['b11a'] = np.random.randn(nant, 1, nchan)
+        xi['b11p'] = np.random.randn(nant, 1, nchan)
 
     if 'D' in joness:
-        xi['c'] = np.random.randn(ntime, nant, 1)
-        xi['d'] = np.random.randn(ntime, nant, 1)
+        xi['c'] = np.random.randn(nant, ntime, 1)
+        xi['d'] = np.random.randn(nant, ntime, 1)
 
     if 'P' in joness:
-        xi['phi'] = np.random.randn(ntime, nant, 1)
+        xi['phi'] = np.random.randn(nant, ntime, 1)
 
     return xi
     

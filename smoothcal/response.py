@@ -145,7 +145,7 @@ def jones2vis(time_bin_indices, time_bin_counts, antenna1, antenna2,
 
 def jacobian(time_bin_indices, time_bin_counts, antenna1, antenna2, freq,  # generic params
              R00, R01, R10, R11, dR00, dR01, dR10, dR11,  # RIME funcs
-             xi, mapping, field_names,  # calibration parameters
+             xi, field_names, field_inds, solvable_names,  # calibration parameters
              I, Q, U, V,  # imaging params
              ):
     time_bin_indices -= time_bin_indices.min()  # for later dask chunking capability
@@ -153,38 +153,58 @@ def jacobian(time_bin_indices, time_bin_counts, antenna1, antenna2, freq,  # gen
     nant = np.maximum(antenna1.max(), antenna2.max())
     nrow = antenna1.size
     nchan = freq.size
-    param_arrays = = itemgetter(*field_names)(xi)
+    
+    # extract parameter arrays in correct order
+    param_arrays = itemgetter(*field_names)(xi)
     npar = len(dR00)
+
+    # set utility function for evaluating field indices
+    func = lambda i:field_inds[i]
+
+    # compute starting indices of stacked solvable params
+    start_inds = {}
+    ntot = 0
+    for name in solvable_names:
+        if name not in start_inds:
+            arr = xi[name]
+            start_inds[name] = ntot
+            ntot += np.prod(arr.shape)
+
+    # init storage arrays
     Vpq = np.zeros((nrow, nchan, 4), dtype=np.complex128)
-    Jac = np.zeros((nrow, nchan, 4, ntime, nchan, len(solparams)), dtype=np.complex128)
+    Jac = np.zeros((nrow, nchan, 4, ntot), dtype=np.complex128)
     for t in range(ntime):
         for row in range(time_bin_indices[t],
                          time_bin_indices[t] + time_bin_counts[t]):
             p = int(antenna1[row])
             q = int(antenna2[row])
             for chan in range(nchan):
+                # extract indices at which to evaluate individual parameter arrays
                 inds = ()
-                for tmp in mapping:
+                for tmp in map(func, range(len(field_inds))):
                     inds += tmp(t, p, q, chan)
+
+                # evaluate parameters at these indices (in order expected by RIME funcs) 
                 params = ()
-                for i in range(len(param_arrays)):
-                    params += (param_arrays[i][inds[i]][0],)
-                params += (I, Q, U, V, freq[nu])
+                for i in range(npar):
+                    params += (param_arrays[i][inds[i]],)
+                params += (I, Q, U, V, freq[chan])
 
-                Vpq[row, chan, 0] = R00(params)
-                Vpq[row, chan, 1] = R10(params)
-                Vpq[row, chan, 2] = R01(params)
-                Vpq[row, chan, 3] = R11(params)
+                # evaluate RIME
+                Vpq[row, chan, 0] = R00(*params)
+                Vpq[row, chan, 1] = R10(*params)
+                Vpq[row, chan, 2] = R01(*params)
+                Vpq[row, chan, 3] = R11(*params)
 
-                for ipar in range(npar):
-                    ind00 = (row, chan, 0) + inds[ipar]
-                    ind10 = (row, chan, 1) + inds[ipar]
-                    ind01 = (row, chan, 2) + inds[ipar]
-                    ind11 = (row, chan, 3) + inds[ipar]
-                    Jac[ind00] = dR00[ipar](params)
-                    Jac[ind10] = dR10[ipar](params)
-                    Jac[ind01] = dR01[ipar](params)
-                    Jac[ind11] = dR11[ipar](params)
+                # evaluate Jacobian
+                for ipar, name in enumerate(solvable_names):
+                    par_p, par_t, par_nu = inds[ipar]
+                    ind0 = start_inds[name]
+                    dims_p, dims_t, dims_nu = xi[name].shape
+                    Jac[row, chan, 0, ind0 + par_p*dims_t*dims_nu + par_t*dims_nu + par_nu] = dR00[ipar](*params)
+                    Jac[row, chan, 1, ind0 + par_p*dims_t*dims_nu + par_t*dims_nu + par_nu] = dR10[ipar](*params)
+                    Jac[row, chan, 2, ind0 + par_p*dims_t*dims_nu + par_t*dims_nu + par_nu] = dR01[ipar](*params)
+                    Jac[row, chan, 3, ind0 + par_p*dims_t*dims_nu + par_t*dims_nu + par_nu] = dR11[ipar](*params)
 
     return Vpq, Jac
 
