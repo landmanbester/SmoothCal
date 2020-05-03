@@ -84,8 +84,6 @@ if __name__=="__main__":
     U = 0.1
     V = 0.01
 
-    print(tbin_idx, tbin_counts)
-
     # evaluate model and Jacobian
     Vpq, J = jacobian(tbin_idx, tbin_counts, antenna1, antenna2, freq,
                       R00, R01, R10, R11, dR00, dR01, dR10, dR11,

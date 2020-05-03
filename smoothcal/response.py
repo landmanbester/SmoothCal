@@ -143,6 +143,7 @@ def jones2vis(time_bin_indices, time_bin_counts, antenna1, antenna2,
                 Vpq[row, nu] = G[Ip] @ K[Ip] @ B[Ip] @ D[Ip] @ Pp @ Bs[nu] @ Pq.conj().T @ D[Iq].conj().T @ B[Iq].conj().T @ K[Iq].conj().T @ G[Iq].conj().T
     return Vpq
 
+# @jit(nopython=True, nogil=True, fastmath=True)
 def jacobian(time_bin_indices, time_bin_counts, antenna1, antenna2, freq,  # generic params
              R00, R01, R10, R11, dR00, dR01, dR10, dR11,  # RIME funcs
              xi, field_names, field_inds, solvable_names,  # calibration parameters
