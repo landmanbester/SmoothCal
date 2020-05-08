@@ -5,6 +5,17 @@ from africanus.calibration.utils import chunkify_rows
 from pyrap.tables import table
 import pickle
 
+from numba import njit
+
+#@njit(nogil=True, fastmath=True)
+def test_tuple_construct(field_names, xi):
+    param_arrays = ()
+    for iname in range(len(field_names)):
+        name = field_names[iname]
+        param_arrays += (xi[name],)
+
+    return param_arrays
+
 if __name__=="__main__":
     # data source
     ms_name = '/home/landman/Data/SmoothCalTests/VLA_3stamps_60s_8chan_20Mhz.MS_p0'
@@ -78,16 +89,28 @@ if __name__=="__main__":
     # now we need a dct containing field arrays
     xi = define_field_dct(ntime, nchan, nant, joness)
 
+    param_arrays = test_tuple_construct(field_names, xi)
+
     # image params
     I = 1.0
     Q = 0.1
     U = 0.1
     V = 0.01
+    
+    # compute starting indices of stacked solvable params
+    from numba import typed
+    start_inds = typed.Dict()
+    ntot = 0
+    for name in solvable_names:
+        if name not in start_inds:
+            arr = xi[name]
+            start_inds[name] = ntot
+            ntot += np.prod(arr.shape)
 
     # evaluate model and Jacobian
     Vpq, J = jacobian(tbin_idx, tbin_counts, antenna1, antenna2, freq,
                       R00, R01, R10, R11, dR00, dR01, dR10, dR11,
-                      xi, field_names, field_inds, solvable_names,
+                      xi, field_names, field_inds, solvable_names, start_inds, ntot, param_arrays,
                       I, Q, U, V)
 
     print(Vpq.shape, J.shape)

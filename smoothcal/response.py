@@ -1,5 +1,5 @@
 import numpy as np
-from numba import jit, prange
+from numba import jit, prange, typed
 from operator import itemgetter
 
 @jit(fastmath=True)
@@ -143,33 +143,20 @@ def jones2vis(time_bin_indices, time_bin_counts, antenna1, antenna2,
                 Vpq[row, nu] = G[Ip] @ K[Ip] @ B[Ip] @ D[Ip] @ Pp @ Bs[nu] @ Pq.conj().T @ D[Iq].conj().T @ B[Iq].conj().T @ K[Iq].conj().T @ G[Iq].conj().T
     return Vpq
 
-# @jit(nopython=True, nogil=True, fastmath=True)
+@jit(nopython=True, nogil=True, fastmath=True)
 def jacobian(time_bin_indices, time_bin_counts, antenna1, antenna2, freq,  # generic params
              R00, R01, R10, R11, dR00, dR01, dR10, dR11,  # RIME funcs
-             xi, field_names, field_inds, solvable_names,  # calibration parameters
-             I, Q, U, V,  # imaging params
-             ):
+             xi, field_names, field_inds, solvable_names, start_inds, ntot, param_arrays,  # calibration parameters
+             I, Q, U, V):
     time_bin_indices -= time_bin_indices.min()  # for later dask chunking capability
     ntime  = time_bin_indices.size
     nant = np.maximum(antenna1.max(), antenna2.max())
     nrow = antenna1.size
     nchan = freq.size
     
-    # extract parameter arrays in correct order
-    param_arrays = itemgetter(*field_names)(xi)
+    params = np.zeros(len(field_names) + 5, dtype=np.float64)
+    
     npar = len(dR00)
-
-    # set utility function for evaluating field indices
-    func = lambda i:field_inds[i]
-
-    # compute starting indices of stacked solvable params
-    start_inds = {}
-    ntot = 0
-    for name in solvable_names:
-        if name not in start_inds:
-            arr = xi[name]
-            start_inds[name] = ntot
-            ntot += np.prod(arr.shape)
 
     # init storage arrays
     Vpq = np.zeros((nrow, nchan, 4), dtype=np.complex128)
@@ -180,32 +167,32 @@ def jacobian(time_bin_indices, time_bin_counts, antenna1, antenna2, freq,  # gen
             p = int(antenna1[row])
             q = int(antenna2[row])
             for chan in range(nchan):
-                # extract indices at which to evaluate individual parameter arrays
-                inds = ()
-                for tmp in map(func, range(len(field_inds))):
-                    inds += tmp(t, p, q, chan)
-
                 # evaluate parameters at these indices (in order expected by RIME funcs) 
-                params = ()
+                params[0] = freq[chan]
+                params[1] = I
+                params[2] = Q
+                params[3] = U
+                params[4] = V
                 for i in range(npar):
-                    params += (param_arrays[i][inds[i]],)
-                params += (I, Q, U, V, freq[chan])
+                    params[5+i] = param_arrays[i][field_inds[i](t, p, q, chan)]
+
+                tmppar = tuple(params)
 
                 # evaluate RIME
-                Vpq[row, chan, 0] = R00(*params)
-                Vpq[row, chan, 1] = R10(*params)
-                Vpq[row, chan, 2] = R01(*params)
-                Vpq[row, chan, 3] = R11(*params)
+                Vpq[row, chan, 0] = R00(*tmppar)
+                Vpq[row, chan, 1] = R10(*tmppar)
+                Vpq[row, chan, 2] = R01(*tmppar)
+                Vpq[row, chan, 3] = R11(*tmppar)
 
                 # evaluate Jacobian
                 for ipar, name in enumerate(solvable_names):
-                    par_p, par_t, par_nu = inds[ipar]
+                    par_p, par_t, par_nu = field_inds[ipar](t, p, q, chan)
                     ind0 = start_inds[name]
                     dims_p, dims_t, dims_nu = xi[name].shape
-                    Jac[row, chan, 0, ind0 + par_p*dims_t*dims_nu + par_t*dims_nu + par_nu] = dR00[ipar](*params)
-                    Jac[row, chan, 1, ind0 + par_p*dims_t*dims_nu + par_t*dims_nu + par_nu] = dR10[ipar](*params)
-                    Jac[row, chan, 2, ind0 + par_p*dims_t*dims_nu + par_t*dims_nu + par_nu] = dR01[ipar](*params)
-                    Jac[row, chan, 3, ind0 + par_p*dims_t*dims_nu + par_t*dims_nu + par_nu] = dR11[ipar](*params)
+                    Jac[row, chan, 0, ind0 + par_p*dims_t*dims_nu + par_t*dims_nu + par_nu] = dR00[ipar](*tmppar)
+                    Jac[row, chan, 1, ind0 + par_p*dims_t*dims_nu + par_t*dims_nu + par_nu] = dR10[ipar](*tmppar)
+                    Jac[row, chan, 2, ind0 + par_p*dims_t*dims_nu + par_t*dims_nu + par_nu] = dR01[ipar](*tmppar)
+                    Jac[row, chan, 3, ind0 + par_p*dims_t*dims_nu + par_t*dims_nu + par_nu] = dR11[ipar](*tmppar)
 
     return Vpq, Jac
 

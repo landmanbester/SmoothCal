@@ -1,6 +1,6 @@
 import numpy as np
 import sympy as sm
-from numba import njit
+from numba import njit, typed, types
 from africanus.gps.kernels import exponential_squared as expsq
 
 def print_symbolic_jones_chain():
@@ -190,7 +190,7 @@ def symbolic_jones_chain(joness='GKBDP', solvables='11110', poltype='linear'):
     
     RIME = sm.simplify(RIME) 
 
-    parameters = solvable_params + unsolvable_params
+    parameters = unsolvable_params + solvable_params
 
     print(parameters)
 
@@ -253,32 +253,36 @@ def domain2param_mapping(joness, solvables):
             if int(solvables[ind]):
                 solvable_names += 2*('g0a', 'g0p', 'g1a', 'g1p')
             field_names += 2*('g0a', 'g0p', 'g1a', 'g1p')
-            field_inds += (lambda t, p, q, nu: ((p, t, 0),(p, t, 0),(p, t, 0),(p, t, 0),(q, t, 0),(q, t, 0),(q, t, 0),(q, t, 0)),)
+            field_inds += 4*(njit(nogil=True, fastmath=True)(lambda t, p, q, nu: (p, t, 0)),) + \
+                            4*(njit(nogil=True, fastmath=True)(lambda t, p, q, nu: (q, t, 0)),) 
         elif jones == 'K':
             ind = joness.find('K')
             if int(solvables[ind]):
                 solvable_names += 2*('k0', 'k1', 'l0', 'l1')
             field_names += 2*('k0', 'k1', 'l0', 'l1')
-            field_inds += (lambda t, p, q, nu: ((p, t, 0),(p, t, 0),(p, t, 0),(p, t, 0),(q, t, 0),(q, t, 0),(q, t, 0),(q, t, 0)),)
+            field_inds += 4*(njit(nogil=True, fastmath=True)(lambda t, p, q, nu: (p, t, 0)),) + \
+                            4*(njit(nogil=True, fastmath=True)(lambda t, p, q, nu: (q, t, 0)),) 
         elif jones == 'B':
             ind = joness.find('B')
             if int(solvables[ind]):
                 solvable_names += 2*('b00a', 'b00p', 'b01a', 'b01p', 'b10a', 'b10p', 'b11a', 'b11p')
             field_names += 2*('b00a', 'b00p', 'b01a', 'b01p', 'b10a', 'b10p', 'b11a', 'b11p')
-            field_inds += (lambda t, p, q, nu: ((p, 0, nu),(p, 0, nu),(p, 0, nu),(p, 0, nu),(p, 0, nu),(p, 0, nu),(p, 0, nu),(p, 0, nu),
-                                                (q, 0, nu),(q, 0, nu),(q, 0, nu),(q, 0, nu),(q, 0, nu),(q, 0, nu),(q, 0, nu),(q, 0, nu)),)
+            field_inds += 8*(njit(nogil=True, fastmath=True)(lambda t, p, q, nu: (p, 0, nu)),) + \
+                            8*(njit(nogil=True, fastmath=True)(lambda t, p, q, nu: (q, 0, nu)),) 
         elif jones == 'D':
             ind = joness.find('D')
             if int(solvables[ind]):
                 solvable_names += 2*('c', 'd')
             field_names += 2*('c', 'd')
-            field_inds += (lambda t, p, q, nu: ((p, t, 0),(p, t, 0),(q, t, 0),(q, t, 0)),)
+            field_inds += 2*(njit(nogil=True, fastmath=True)(lambda t, p, q, nu: (p, t, 0)),) + \
+                            2*(njit(nogil=True, fastmath=True)(lambda t, p, q, nu: (q, t, 0)),) 
         elif jones == 'P':
             ind = joness.find('P')
             if int(solvables[ind]):
                 solvable_names += 2*('phi',)
             field_names += 2*('phi',)
-            field_inds += (lambda t, p, q, nu: ((p, t, 0),(q, t, 0)),)
+            field_inds += (njit(nogil=True, fastmath=True)(lambda t, p, q, nu: (p, t, 0)),) + \
+                            (njit(nogil=True, fastmath=True)(lambda t, p, q, nu: (q, t, 0)),) 
             
         else:
             raise ValueError("Unrecognised Jones term %s"%jones)
@@ -317,7 +321,7 @@ def domain2param_mapping(joness, solvables):
 
 
 def define_field_dct(ntime, nchan, nant, joness):
-    xi = {}
+    xi = typed.Dict()
     if 'G' in joness:
         xi['g0a'] = np.random.randn(nant, ntime, 1)
         xi['g0p'] = np.random.randn(nant, ntime, 1)
