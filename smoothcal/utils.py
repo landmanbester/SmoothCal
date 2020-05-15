@@ -244,6 +244,19 @@ def symbolic_jones_chain(joness='GKBDP', solvables='11110', poltype='linear'):
     return R00, R01, R10, R11, dR00, dR01, dR10, dR11
 
 def domain2param_mapping(joness, solvables):
+    @njit(nogil=True, fastmath=True)
+    def time_map_p(t, p, q, nu):
+        return (p, t, 0)
+    @njit(nogil=True, fastmath=True)
+    def time_map_q(t, p, q, nu):
+        return (q, t, 0)
+    @njit(nogil=True, fastmath=True)
+    def freq_map_p(t, p, q, nu):
+        return (p, 0, nu)
+    @njit(nogil=True, fastmath=True)
+    def freq_map_q(t, p, q, nu):
+        return (q, 0, nu)
+
     field_names = ()
     field_inds = ()
     solvable_names = ()
@@ -253,36 +266,31 @@ def domain2param_mapping(joness, solvables):
             if int(solvables[ind]):
                 solvable_names += 2*('g0a', 'g0p', 'g1a', 'g1p')
             field_names += 2*('g0a', 'g0p', 'g1a', 'g1p')
-            field_inds += 4*(njit(nogil=True, fastmath=True)(lambda t, p, q, nu: (p, t, 0)),) + \
-                            4*(njit(nogil=True, fastmath=True)(lambda t, p, q, nu: (q, t, 0)),) 
+            field_inds += 4*(time_map_p,) + 4*(time_map_q,) 
         elif jones == 'K':
             ind = joness.find('K')
             if int(solvables[ind]):
                 solvable_names += 2*('k0', 'k1', 'l0', 'l1')
             field_names += 2*('k0', 'k1', 'l0', 'l1')
-            field_inds += 4*(njit(nogil=True, fastmath=True)(lambda t, p, q, nu: (p, t, 0)),) + \
-                            4*(njit(nogil=True, fastmath=True)(lambda t, p, q, nu: (q, t, 0)),) 
+            field_inds += 4*(time_map_p,) + 4*(time_map_q,) 
         elif jones == 'B':
             ind = joness.find('B')
             if int(solvables[ind]):
                 solvable_names += 2*('b00a', 'b00p', 'b01a', 'b01p', 'b10a', 'b10p', 'b11a', 'b11p')
             field_names += 2*('b00a', 'b00p', 'b01a', 'b01p', 'b10a', 'b10p', 'b11a', 'b11p')
-            field_inds += 8*(njit(nogil=True, fastmath=True)(lambda t, p, q, nu: (p, 0, nu)),) + \
-                            8*(njit(nogil=True, fastmath=True)(lambda t, p, q, nu: (q, 0, nu)),) 
+            field_inds += 8*(freq_map_p,) + 8*(freq_map_q,) 
         elif jones == 'D':
             ind = joness.find('D')
             if int(solvables[ind]):
                 solvable_names += 2*('c', 'd')
             field_names += 2*('c', 'd')
-            field_inds += 2*(njit(nogil=True, fastmath=True)(lambda t, p, q, nu: (p, t, 0)),) + \
-                            2*(njit(nogil=True, fastmath=True)(lambda t, p, q, nu: (q, t, 0)),) 
+            field_inds += 2*(time_map_p,) + 2*(time_map_q,) 
         elif jones == 'P':
             ind = joness.find('P')
             if int(solvables[ind]):
                 solvable_names += 2*('phi',)
             field_names += 2*('phi',)
-            field_inds += (njit(nogil=True, fastmath=True)(lambda t, p, q, nu: (p, t, 0)),) + \
-                            (njit(nogil=True, fastmath=True)(lambda t, p, q, nu: (q, t, 0)),) 
+            field_inds += (time_map_p, time_map_q) 
             
         else:
             raise ValueError("Unrecognised Jones term %s"%jones)

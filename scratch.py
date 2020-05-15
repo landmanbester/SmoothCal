@@ -5,7 +5,7 @@ from africanus.calibration.utils import chunkify_rows
 from pyrap.tables import table
 import pickle
 
-from numba import njit
+from numba import njit, literal_unroll
 
 #@njit(nogil=True, fastmath=True)
 def test_tuple_construct(field_names, xi):
@@ -106,6 +106,7 @@ if __name__=="__main__":
             arr = xi[name]
             start_inds[name] = ntot
             ntot += np.prod(arr.shape)
+
 
     # evaluate model and Jacobian
     Vpq, J = jacobian(tbin_idx, tbin_counts, antenna1, antenna2, freq,
