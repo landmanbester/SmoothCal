@@ -149,7 +149,7 @@ def append2tup(tup, element):
     return (*tup, element)
     
 
-#@jit(fastmath=True, nopython=True, nogil=True)  
+@jit(fastmath=True) #, nopython=True, nogil=True)  
 def jacobian(time_bin_indices, time_bin_counts, antenna1, antenna2, freq,  # generic params
              R00, R01, R10, R11, dR00, dR01, dR10, dR11,  # RIME funcs
              xi, field_names, field_inds, solvable_names, start_inds, ntot, param_arrays,  # calibration parameters
@@ -180,7 +180,7 @@ def jacobian(time_bin_indices, time_bin_counts, antenna1, antenna2, freq,  # gen
                 # params[3] = U
                 # params[4] = V
                 i = 0
-                params = (float(freq[chan]), float(I), float(Q), float(U), float(V))
+                params = (freq[chan], I, Q, U, V)
                 for inds in literal_unroll(field_inds):
                     # params[5+i] = param_arrays[i][inds(t, p, q, chan)]
                     el = param_arrays[i][inds(t, p, q, chan)]
