@@ -57,7 +57,7 @@ def main(args):
     # chunkify time mapping
     xds = xds_from_ms(args.ms, 
                       columns=('TIME', 'ANTENNA1', 'ANTENNA2', 
-                      chunks={"row": -1})[args.fid]  # not chunking for the time being
+                      chunks={"row": row_chunks})[args.fid]  # not chunking for the time being
     
     # subtables
     ddids = xds_from_table((args.ms + "::DATA_DESCRIPTION")
