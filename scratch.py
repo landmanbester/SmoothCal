@@ -4,17 +4,7 @@ from smoothcal.response import jacobian
 from africanus.calibration.utils import chunkify_rows
 from pyrap.tables import table
 import pickle
-
-from numba import njit, literal_unroll
-
-#@njit(nogil=True, fastmath=True)
-def test_tuple_construct(field_names, xi):
-    param_arrays = ()
-    for iname in range(len(field_names)):
-        name = field_names[iname]
-        param_arrays += (xi[name],)
-
-    return param_arrays
+from time import time as timeit
 
 if __name__=="__main__":
     # data source
@@ -89,7 +79,10 @@ if __name__=="__main__":
     # now we need a dct containing field arrays
     xi = define_field_dct(ntime, nchan, nant, joness)
 
-    param_arrays = test_tuple_construct(field_names, xi)
+    param_arrays = ()
+    for name in field_names:
+        param_arrays += (xi[name],)
+    # param_arrays = test_tuple_construct(field_names, xi)
 
     # image params
     I = 1.0
@@ -109,9 +102,30 @@ if __name__=="__main__":
 
 
     # evaluate model and Jacobian
+    ti = timeit()
     Vpq, J = jacobian(tbin_idx, tbin_counts, antenna1, antenna2, freq,
                       R00, R01, R10, R11, dR00, dR01, dR10, dR11,
                       xi, field_names, field_inds, solvable_names, start_inds, ntot, param_arrays,
                       I, Q, U, V)
+    print(ti - timeit())
 
-    print(Vpq.shape, J.shape)
+    ti = timeit()
+    Vpq, J = jacobian(tbin_idx, tbin_counts, antenna1, antenna2, freq,
+                      R00, R01, R10, R11, dR00, dR01, dR10, dR11,
+                      xi, field_names, field_inds, solvable_names, start_inds, ntot, param_arrays,
+                      I, Q, U, V)
+    print(ti - timeit())
+
+    ti = timeit()
+    Vpq, J = jacobian(tbin_idx, tbin_counts, antenna1, antenna2, freq,
+                      R00, R01, R10, R11, dR00, dR01, dR10, dR11,
+                      xi, field_names, field_inds, solvable_names, start_inds, ntot, param_arrays,
+                      I, Q, U, V)
+    print(ti - timeit())
+
+    ti = timeit()
+    Vpq, J = jacobian(tbin_idx, tbin_counts, antenna1, antenna2, freq,
+                      R00, R01, R10, R11, dR00, dR01, dR10, dR11,
+                      xi, field_names, field_inds, solvable_names, start_inds, ntot, param_arrays,
+                      I, Q, U, V)
+    print(ti - timeit())
