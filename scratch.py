@@ -1,3 +1,6 @@
+import matplotlib as mpl
+mpl.use('TkAgg')
+import matplotlib.pyplot as plt
 import numpy as np
 from smoothcal.utils import symbolic_jones_chain, define_field_dct, domain2param_mapping
 from smoothcal.response import jacobian
@@ -5,6 +8,7 @@ from africanus.calibration.utils import chunkify_rows
 from pyrap.tables import table
 import pickle
 from time import time as timeit
+from scipy.sparse import csr_matrix
 
 if __name__=="__main__":
     # data source
@@ -40,9 +44,12 @@ if __name__=="__main__":
         dR01 = RIME['dR01']
         dR10 = RIME['dR10']
         dR11 = RIME['dR11']
+        solvable_names = RIME['solvable_names']
+        field_names = RIME['field_names']
+        field_inds = RIME['field_inds']
         
     except:
-        R00, R01, R10, R11, dR00, dR01, dR10, dR11 = symbolic_jones_chain(joness=joness, solvables=solvables, poltype=pol_type)
+        R00, R01, R10, R11, dR00, dR01, dR10, dR11, solvable_names, field_names, field_inds = symbolic_jones_chain(joness=joness, solvables=solvables, poltype=pol_type)
 
         RIME = {}
         RIME['R00'] = R00
@@ -53,12 +60,12 @@ if __name__=="__main__":
         RIME['dR01'] = dR01
         RIME['dR10'] = dR10
         RIME['dR11'] = dR11
+        RIME['solvable_names'] = solvable_names
+        RIME['field_names'] = field_names
+        RIME['field_inds'] = field_inds
 
         with open(cache_dir+joness+'_'+solvables+'.pickle', 'wb') as f:
             pickle.dump(RIME, f)
-    
-    # get domain to param mapping (need this separately because the mapping generator can't be pickled)
-    field_names, field_inds, solvable_names = domain2param_mapping(joness, solvables)
 
     # get ms info
     ms = table(ms_name)
@@ -82,7 +89,6 @@ if __name__=="__main__":
     param_arrays = ()
     for name in field_names:
         param_arrays += (xi[name],)
-    # param_arrays = test_tuple_construct(field_names, xi)
 
     # image params
     I = 1.0
@@ -101,31 +107,45 @@ if __name__=="__main__":
             ntot += np.prod(arr.shape)
 
 
+    print(len(solvable_names), len(field_inds))
+
+    quit()
+
     # evaluate model and Jacobian
     ti = timeit()
-    Vpq, J = jacobian(tbin_idx, tbin_counts, antenna1, antenna2, freq,
+    Vpq, J, J2 = jacobian(tbin_idx, tbin_counts, antenna1, antenna2, freq,
                       R00, R01, R10, R11, dR00, dR01, dR10, dR11,
                       xi, field_names, field_inds, solvable_names, start_inds, ntot, param_arrays,
                       I, Q, U, V)
-    print(ti - timeit())
+    print(timeit() - ti)
+
+    
+
+
+    # ti = timeit()
+    # Vpq, J = jacobian(tbin_idx, tbin_counts, antenna1, antenna2, freq,
+    #                   R00, R01, R10, R11, dR00, dR01, dR10, dR11,
+    #                   xi, field_names, field_inds, solvable_names, start_inds, ntot, param_arrays,
+    #                   I, Q, U, V)
+    # print(timeit() - ti)
+
+    x = np.random.randn(ntot)
+    ti = timeit()
+    tmp = J.dot(x)
+    print(timeit() - ti)
+
+    plt.figure('1')
+    plt.imshow(np.abs(J[0:ntot, :]))
+    plt.colorbar()
 
     ti = timeit()
-    Vpq, J = jacobian(tbin_idx, tbin_counts, antenna1, antenna2, freq,
-                      R00, R01, R10, R11, dR00, dR01, dR10, dR11,
-                      xi, field_names, field_inds, solvable_names, start_inds, ntot, param_arrays,
-                      I, Q, U, V)
-    print(ti - timeit())
+    tmp2 = J2.dot(x)
+    print(timeit() - ti)
 
-    ti = timeit()
-    Vpq, J = jacobian(tbin_idx, tbin_counts, antenna1, antenna2, freq,
-                      R00, R01, R10, R11, dR00, dR01, dR10, dR11,
-                      xi, field_names, field_inds, solvable_names, start_inds, ntot, param_arrays,
-                      I, Q, U, V)
-    print(ti - timeit())
+    plt.figure('2')
+    plt.imshow(np.abs(J2.toarray()[0:ntot, :]))
+    plt.colorbar()
 
-    ti = timeit()
-    Vpq, J = jacobian(tbin_idx, tbin_counts, antenna1, antenna2, freq,
-                      R00, R01, R10, R11, dR00, dR01, dR10, dR11,
-                      xi, field_names, field_inds, solvable_names, start_inds, ntot, param_arrays,
-                      I, Q, U, V)
-    print(ti - timeit())
+    print(np.abs(tmp - tmp2).max())
+
+    plt.show()

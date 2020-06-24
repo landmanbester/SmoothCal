@@ -2,6 +2,7 @@ import numpy as np
 import numba as nb
 from numba import jit, prange, typed, literal_unroll
 from operator import itemgetter
+from scipy.sparse import coo_matrix
 
 @jit(fastmath=True)
 def param2vis(time_bin_indices, time_bin_counts, antenna1, antenna2,
@@ -150,19 +151,21 @@ def jacobian(time_bin_indices, time_bin_counts, antenna1, antenna2, freq,  # gen
              R00, R01, R10, R11, dR00, dR01, dR10, dR11,  # RIME funcs
              xi, field_names, field_inds, solvable_names, start_inds, ntot, param_arrays,  # calibration parameters
              I, Q, U, V):
-    time_bin_indices -= time_bin_indices.min()  # for later dask chunking capability
+    # time_bin_indices -= time_bin_indices.min()  # for later dask chunking capability
     ntime  = time_bin_indices.size
     nant = np.maximum(antenna1.max(), antenna2.max())
     nrow = antenna1.size
     nchan = freq.size
-    
-    params = np.zeros(len(field_names) + 5, dtype=np.float64)
-    
-    npar = len(dR00)
+    ncorr = 4
+
+    # keep treack of non-zero Jacobian entries
+    indx = []
+    indy = []
+    vals = []
 
     # init storage arrays
-    Vpq = np.zeros((nrow, nchan, 4), dtype=np.complex128)
-    Jac = np.zeros((nrow, nchan, 4, ntot), dtype=np.complex128)
+    Vpq = np.zeros((nrow, nchan, ncorr), dtype=np.complex128)
+    Jac = np.zeros((nrow * nchan * ncorr, ntot), dtype=np.complex128)
     for t in range(ntime):
         for row in range(time_bin_indices[t],
                          time_bin_indices[t] + time_bin_counts[t]):
@@ -174,22 +177,37 @@ def jacobian(time_bin_indices, time_bin_counts, antenna1, antenna2, freq,  # gen
                 for i, inds in enumerate(field_inds):
                     params += (param_arrays[i][inds(t, p, q, chan)],)
 
-                # evaluate RIME
+                # # evaluate RIME
                 Vpq[row, chan, 0] = R00(*params)
-                Vpq[row, chan, 1] = R10(*params)
-                Vpq[row, chan, 2] = R01(*params)
+                Vpq[row, chan, 1] = R01(*params)
+                Vpq[row, chan, 2] = R10(*params)
                 Vpq[row, chan, 3] = R11(*params)
 
-                # # # evaluate Jacobian
-                # for ipar, name in enumerate(solvable_names):
-                #     par_p, par_t, par_nu = field_inds[ipar](t, p, q, chan)
-                #     ind0 = start_inds[name]
-                #     dims_p, dims_t, dims_nu = xi[name].shape
-                #     Jac[row, chan, 0, ind0 + par_p*dims_t*dims_nu + par_t*dims_nu + par_nu] = dR00[ipar](*params)
-                #     Jac[row, chan, 1, ind0 + par_p*dims_t*dims_nu + par_t*dims_nu + par_nu] = dR10[ipar](*params)
-                #     Jac[row, chan, 2, ind0 + par_p*dims_t*dims_nu + par_t*dims_nu + par_nu] = dR01[ipar](*params)
-                #     Jac[row, chan, 3, ind0 + par_p*dims_t*dims_nu + par_t*dims_nu + par_nu] = dR11[ipar](*params)
-
-    return Vpq, Jac
+                # # evaluate Jacobian
+                for ipar, name in enumerate(solvable_names):
+                    par_p, par_t, par_nu = field_inds[ipar](t, p, q, chan)  # not correct!!!! len(field_inds) != len(solvable_names)
+                    ind0 = start_inds[name]
+                    dims_p, dims_t, dims_nu = xi[name].shape
+                    tmpx = row*nchan + chan*ncorr
+                    tmpy = ind0 + par_p*dims_t*dims_nu + par_t*dims_nu + par_nu
+                    indx.append(tmpx + 0) 
+                    indx.append(tmpx + 1)
+                    indx.append(tmpx + 2)
+                    indx.append(tmpx + 3)
+                    indy.append(tmpy)
+                    indy.append(tmpy)
+                    indy.append(tmpy)
+                    indy.append(tmpy)
+                    vals.append(dR00[ipar](*params)) 
+                    vals.append(dR01[ipar](*params))
+                    vals.append(dR10[ipar](*params))
+                    vals.append(dR11[ipar](*params))
+                    Jac[tmpx + 0, tmpy] = dR00[ipar](*params)
+                    Jac[tmpx + 1, tmpy] = dR01[ipar](*params)
+                    Jac[tmpx + 2, tmpy] = dR10[ipar](*params)
+                    Jac[tmpx + 3, tmpy] = dR11[ipar](*params)
+    print("Making coo")
+    Jac2 = coo_matrix((vals, (indx, indy)), shape=(nrow*nchan*ncorr, ntot), dtype=np.complex128)  #.eliminate_zeros()
+    return Vpq, Jac, Jac2.tocsr()
 
 
